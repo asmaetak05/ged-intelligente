@@ -1,0 +1,36 @@
+# Web & API
+fastapi
+uvicorn
+requests
+beautifulsoup4
+
+# Database
+sqlalchemy
+alembic
+psycopg2-binary
+pydantic
+pydantic-settings
+
+# Data Extraction & OCR
+python-docx
+pywin32; sys_platform == 'win32'
+PyMuPDF
+pdfplumber
+pytesseract
+pdf2image
+
+# LLM integration
+openai
+python-dotenv
+
+# NLP & Machine Learning
+spacy
+dateparser
+scikit-learn
+xgboost
+pandas
+joblib
+
+# Dev Tools
+pytest
+black
