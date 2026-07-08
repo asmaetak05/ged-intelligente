@@ -73,19 +73,19 @@ Le périmètre initial est volontairement réduit pour 8 semaines. Le ML reste *
 
 ## 3. Stack Technique Recommandée
 
-| Couche | Technologie | Justification |
-|--------|-------------|---------------|
-| **Langage** | Python 3.11+ | Standard data science, riche écosystème |
-| **Scraping** | requests, BeautifulSoup, Scrapy | Pages statiques ASP.NET du portail |
-| **OCR** | Tesseract 5.x (fra, ara, eng) | Gratuit, robuste, support bilingue fr/ar |
-| **PDF natif** | PyMuPDF, pdfplumber | Extraction rapide des PDF textuels |
-| **NLP** | spaCy (fr_core_news_md), regex, dateparser | Extraction d'entités et normalisation |
-| **Base de données** | PostgreSQL 16 | Structuré, FTS intégré, JSONB flexible |
-| **API** | FastAPI, SQLAlchemy, Alembic | Auto-documentation, typage, migrations |
-| **Frontend** | React, Vite, Tailwind, Axios | Interface moderne et démontrable |
-| **BI** | Recharts, Plotly | Graphiques interactifs intégrés au frontend |
-| **ML** | scikit-learn, XGBoost, pandas, joblib | Baseline robuste et interprétable |
-| **DevOps** | Docker Compose, Git, pytest, black | Reproductibilité et qualité du code |
+| Couche              | Technologie                                | Justification                              |
+|---------------------|--------------------------------------------|--------------------------------------------|
+| **Langage**         | Python 3.11+                               | Standard data science, riche écosystème    |
+| **Scraping**        | requests, BeautifulSoup, Scrapy            | Pages statiques ASP.NET du portail         |
+| **OCR**             | Tesseract 5.x (fra, ara, eng)              | Gratuit, robuste, support bilingue fr/ar   |
+| **PDF natif**       | PyMuPDF, pdfplumber                        | Extraction rapide des PDF textuels         |
+| **NLP**             | spaCy (fr_core_news_md), regex, dateparser | Extraction d'entités et normalisation      |
+| **Base de données** | PostgreSQL 16                              | Structuré, FTS intégré, JSONB flexible     |
+| **API**             | FastAPI, SQLAlchemy, Alembic               | Auto-documentation, typage, migrations     |
+| **Frontend**        | React, Vite, Tailwind, Axios               | Interface moderne et démontrable           |
+| **BI**              | Recharts, Plotly                           | Graphiques interactifs intégrés au frontend|
+| **ML**              | scikit-learn, XGBoost, pandas, joblib      | Baseline robuste et interprétable          |
+| **DevOps**          | Docker Compose, Git, pytest, black         | Reproductibilité et qualité du code        |
 
 ---
 
@@ -131,8 +131,8 @@ Le périmètre initial est volontairement réduit pour 8 semaines. Le ML reste *
 ### Semaine 3 — Structuration NLP & Stockage
 **Objectif :** Transformer le texte brut en données structurées et les stocker proprement.
 
-| Jour | Tâche | Livrable |
-|------|-------|----------|
+| Jour   | Tâche | Livrable |
+|--------|-------|----------|
 | **J1** | Définir le schéma SQL final (tables `documents`, `marches`, `ocr_results`, `extraction_results`). Créer les tables avec Alembic. | Schéma SQL versionné |
 | **J2** | Développer les extracteurs NLP : regex pour montants, dates, références ; spaCy pour objets et organismes. | Module `nlp/extractor.py` |
 | **J3** | Structurer les données en JSON normalisé (un fichier par document). Valider avec Pydantic. | 50+ fichiers JSON structurés |
@@ -140,30 +140,30 @@ Le périmètre initial est volontairement réduit pour 8 semaines. Le ML reste *
 | **J5** | Créer les index PostgreSQL (FTS, trigrammes) pour la recherche. | Index de recherche opérationnels |
 
 **Champs obligatoires à extraire :**
-| Champ | Priorité | Méthode |
-|-------|----------|---------|
-| Référence / N° d'ordre | Obligatoire | Regex + scraping |
-| Objet du marché | Obligatoire | NLP + regex |
-| Organisme acheteur | Obligatoire | Règles + spaCy |
-| Catégorie / Type | Obligatoire | Scraping + classification simple |
-| Date de publication | Obligatoire | Scraping + dateparser |
-| Date limite | Obligatoire | Scraping + dateparser |
-| Montant estimé | Important | Regex + normalisation MAD |
-| Lieu / Région | Important | Règles + normalisation |
-| Caution | Si disponible | Regex |
+| Champ                  | Priorité     | Méthode                          |
+|------------------------|--------------|----------------------------------|
+| Référence / N° d'ordre | Obligatoire  | Regex + scraping                 |
+| Objet du marché        | Obligatoire  | NLP + regex                      |
+| Organisme acheteur     | Obligatoire  | Règles + spaCy                   |
+| Catégorie / Type       | Obligatoire  | Scraping + classification simple |
+| Date de publication    | Obligatoire  | Scraping + dateparser            |
+| Date limite            | Obligatoire  | Scraping + dateparser            |
+| Montant estimé         | Important    | Regex + normalisation MAD        |
+| Lieu / Région          | Important    | Règles + normalisation           |
+| Caution                | Si disponible| Regex                            |
 
 ---
 
 ### Semaine 4 — Backend API & Recherche
 **Objectif :** Rendre les données accessibles via une API REST documentée.
 
-| Jour | Tâche | Livrable |
-|------|-------|----------|
-| **J1** | Initialiser FastAPI, SQLAlchemy, Pydantic. Créer les modèles et schémas. | Projet FastAPI structuré |
-| **J2** | Endpoints CRUD : documents, marchés, recherche par filtres (date, ville, organisme, montant). | API CRUD fonctionnelle |
-| **J3** | Recherche full-text PostgreSQL : endpoint `/search?q=...` avec classement par pertinence. | Recherche textuelle opérationnelle |
-| **J4** | Endpoint `/stats` pour les agrégations BI (comptes, sommes, moyennes). | API analytique |
-| **J5** | Tests API avec pytest. Documentation Swagger. | Suite de tests + Swagger UI |
+| Jour   | Tâche                                                                                         | Livrable |
+|--------|-----------------------------------------------------------------------------------------------|------------------------------------|
+| **J1** | Initialiser FastAPI, SQLAlchemy, Pydantic. Créer les modèles et schémas.                      | Projet FastAPI structuré           |
+| **J2** | Endpoints CRUD : documents, marchés, recherche par filtres (date, ville, organisme, montant). | API CRUD fonctionnelle             |
+| **J3** | Recherche full-text PostgreSQL : endpoint `/search?q=...` avec classement par pertinence.     | Recherche textuelle opérationnelle |
+| **J4** | Endpoint `/stats` pour les agrégations BI (comptes, sommes, moyennes).                        | API analytique                     |
+| **J5** | Tests API avec pytest. Documentation Swagger.                                                 | Suite de tests + Swagger UI        |
 
 ---
 
