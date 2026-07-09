@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File, Body
 from sqlalchemy.orm import Session
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import sqlite3
 import re
+import json
 import os
 
 from . import models, schemas
@@ -34,7 +35,7 @@ def parse_number(value):
     """Extrait un nombre depuis un texte du type '440 000,00 MAD' ou '12 mois'."""
     if not value:
         return 0
-    cleaned = re.sub(r'[^\d,\.]', '', str(value))  # garde chiffres, virgule, point
+    cleaned = re.sub(r'[^\d,\.]', '', str(value))
     cleaned = cleaned.replace(' ', '').replace(',', '.')
     try:
         return float(cleaned) if cleaned else 0
@@ -51,16 +52,23 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
 
 @app.get("/api/v1/ged/search")
 def search_documents(q: str = ""):
+    if not q.strip():
+        return {"query": q, "count": 0, "results": []}
     try:
         conn = get_db_connection()
-        query = f"%{q}%"
+        fts_query = " ".join([f"{word}*" for word in q.strip().split()])
         rows = conn.execute(
-            """SELECT * FROM appels_offres
-               WHERE objet LIKE ?
-                  OR maitre_ouvrage LIKE ?
-                  OR numero_ordre LIKE ?""",
-            (query, query, query)
+            """
+            SELECT ao.numero_ordre, ao.objet, ao.maitre_ouvrage,
+                   ao.lieu_ouverture_plis, ao.categorie_marche
+            FROM appels_offres_fts fts
+            JOIN appels_offres ao ON ao.id = fts.rowid
+            WHERE appels_offres_fts MATCH ?
+            ORDER BY rank
+            """,
+            (fts_query,)
         ).fetchall()
+        conn.close()
         results = [
             {
                 "numero_appel_offre": r["numero_ordre"],
@@ -72,11 +80,35 @@ def search_documents(q: str = ""):
             }
             for r in rows
         ]
-        conn.close()
         return {"query": q, "count": len(results), "results": results}
+    except sqlite3.OperationalError as e:
+        print(f"[FTS indisponible, fallback LIKE] {e}")
+        return search_documents_fallback_like(q)
     except Exception as e:
         print(f"[ERREUR search_documents] {e}")
         return {"query": q, "count": 0, "results": []}
+
+def search_documents_fallback_like(q: str):
+    conn = get_db_connection()
+    query = f"%{q}%"
+    rows = conn.execute(
+        """SELECT * FROM appels_offres
+           WHERE objet LIKE ? OR maitre_ouvrage LIKE ? OR numero_ordre LIKE ?""",
+        (query, query, query)
+    ).fetchall()
+    conn.close()
+    results = [
+        {
+            "numero_appel_offre": r["numero_ordre"],
+            "titre_projet": r["objet"],
+            "organisme_acheteur": r["maitre_ouvrage"],
+            "ville_execution": r["lieu_ouverture_plis"] or "Maroc",
+            "categorie_prestation": r["categorie_marche"],
+            "highlight": "..." + (r["objet"][:50] if r["objet"] else "") + "..."
+        }
+        for r in rows
+    ]
+    return {"query": q, "count": len(results), "results": results}
 
 @app.get("/api/v1/ged/documents/{id}/preview")
 def get_document_preview(id: int, db: Session = Depends(get_db)):
@@ -106,6 +138,60 @@ def get_documents():
     except Exception as e:
         print(f"[ERREUR get_documents] {e}")
         return []
+
+# --- Réception des données extraites par le pipeline de scraping/OCR/NLP ---
+
+COLONNES_AO = [
+    "numero_ordre", "objet", "maitre_ouvrage", "estimation_mad", "caution_mad",
+    "dossier_zip_source", "delai_execution", "penalite_retard", "caution_definitive",
+    "retenue_garantie", "agrements_exiges", "profils_exiges", "methode_notation",
+    "date_ouverture_plis", "lieu_ouverture_plis", "categorie_marche"
+]
+
+def _serialiser_champ(valeur):
+    """Convertit listes/dicts en texte JSON pour les colonnes TEXT, laisse le reste tel quel."""
+    if isinstance(valeur, (list, dict)):
+        return json.dumps(valeur, ensure_ascii=False)
+    return valeur
+
+@app.post("/api/v1/ged/appels-offres")
+def create_or_update_appel_offre(payload: dict = Body(...)):
+    numero_ordre = payload.get("numero_ordre")
+    if not numero_ordre:
+        raise HTTPException(status_code=400, detail="numero_ordre est obligatoire")
+
+    conn = get_db_connection()
+    try:
+        existing = conn.execute(
+            "SELECT id FROM appels_offres WHERE numero_ordre = ?", (numero_ordre,)
+        ).fetchone()
+
+        valeurs = {col: _serialiser_champ(payload.get(col)) for col in COLONNES_AO}
+
+        if existing:
+            set_clause = ", ".join(f"{c} = ?" for c in COLONNES_AO if c != "numero_ordre")
+            params = [valeurs[c] for c in COLONNES_AO if c != "numero_ordre"] + [numero_ordre]
+            conn.execute(f"UPDATE appels_offres SET {set_clause} WHERE numero_ordre = ?", params)
+            conn.commit()
+            ao_id = existing["id"]
+            action = "mis à jour"
+        else:
+            colonnes_sql = ", ".join(COLONNES_AO)
+            placeholders = ", ".join(["?"] * len(COLONNES_AO))
+            params = [valeurs[c] for c in COLONNES_AO]
+            cur = conn.execute(
+                f"INSERT INTO appels_offres ({colonnes_sql}) VALUES ({placeholders})", params
+            )
+            conn.commit()
+            ao_id = cur.lastrowid
+            action = "créé"
+
+        return {"id": ao_id, "numero_ordre": numero_ordre, "action": action}
+    except Exception as e:
+        print(f"[ERREUR create_or_update_appel_offre] {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
 
 # ==========================================
 # 📊 Espace Décisionnel & BI (/api/v1/analytics)
