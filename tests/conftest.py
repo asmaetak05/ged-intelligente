@@ -48,22 +48,42 @@ def ged_db_path(project_root: Path) -> Path:
 
 @pytest.fixture
 def db_session():
-    """Session SQLAlchemy vers une base SQLite en mémoire.
-
-    NOTE : sera implémentée en T1.10 après le refactoring de `database.py`.
-    Pour l'instant, la fixture lève NotImplementedError pour signaler qu'elle
-    n'est pas encore prête.
-    """
-    pytest.skip("db_session sera disponible après la Phase 1 (T1.10)")
-
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+    from backend.database import Base
+    import backend.models
+    
+    engine = create_engine(
+        "sqlite:///:memory:", 
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool
+    )
+    Base.metadata.create_all(bind=engine)
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 @pytest.fixture
-def client():
-    """Client HTTP FastAPI pour les tests d'API.
+def client(db_session):
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    from backend.database import get_db
 
-    NOTE : sera implémenté en T1.11.
-    """
-    pytest.skip("client sera disponible après la Phase 1 (T1.11)")
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.clear()
 
 
 # ---------------------------------------------------------------------------

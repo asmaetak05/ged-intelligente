@@ -12,6 +12,8 @@ import sqlite3
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
+from backend.main import app
 
 
 def test_ged_db_is_intact(ged_db_path: Path) -> None:
@@ -26,12 +28,12 @@ def test_ged_db_is_intact(ged_db_path: Path) -> None:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='appels_offres'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='marches'"
         )
         tables = cur.fetchall()
-        assert tables, "Table `appels_offres` manquante"
+        assert tables, "Table `marches` manquante"
 
-        cur.execute("SELECT COUNT(*) FROM appels_offres")
+        cur.execute("SELECT COUNT(*) FROM marches")
         count = cur.fetchone()[0]
         assert count >= 10, f"BDD appauvrie ({count} AO, attendu >= 10)"
     finally:
@@ -78,18 +80,14 @@ def test_repo_structure_is_consistent() -> None:
 # ---------------------------------------------------------------------------
 
 def test_openapi_accessible() -> None:
-    """Verifie que `/openapi.json` retourne 200.
-
-    Ticket : T7.1. Desactive en Phase 0 car l'API n'est pas encore
-    correctement demarree (mode degrade silencieux a cause de la double
-    architecture SQLite/PostgreSQL).
-    """
-    pytest.skip("Sera active en Phase 1 apres refactoring de l'API")
+    """Verifie que `/openapi.json` retourne 200."""
+    client = TestClient(app)
+    response = client.get("/openapi.json")
+    assert response.status_code == 200
 
 
 def test_docs_accessible() -> None:
-    """Verifie que `/docs` (Swagger UI) retourne 200.
-
-    Ticket : T7.1. Idem, desactive en Phase 0.
-    """
-    pytest.skip("Sera active en Phase 1 apres refactoring de l'API")
+    """Verifie que `/docs` (Swagger UI) retourne 200."""
+    client = TestClient(app)
+    response = client.get("/docs")
+    assert response.status_code == 200

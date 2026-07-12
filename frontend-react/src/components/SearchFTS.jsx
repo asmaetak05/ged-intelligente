@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
 
 const SearchFTS = () => {
@@ -7,19 +8,28 @@ const SearchFTS = () => {
   const [results, setResults] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
+  const fetchResults = async (p = 1) => {
     setIsLoading(true);
     setHasSearched(true);
     try {
-      const res = await axios.get(`http://127.0.0.1:8000/api/v1/ged/search?q=${query}`);
-      setResults(res.data.results);
+      // Utilisation de l'endpoint d'appels-offres qui gère le FTS `q=` et la pagination
+      const res = await axios.get(`http://127.0.0.1:8000/api/v1/ged/appels-offres?q=${query}&page=${p}&page_size=10`);
+      setResults(res.data.items);
+      setTotal(res.data.total);
+      setPage(p);
     } catch (error) {
       console.error(error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    fetchResults(1);
   };
 
   return (
@@ -57,7 +67,9 @@ const SearchFTS = () => {
           {results.map((res, i) => (
             <div key={i} className="bg-white border border-zinc-200 rounded-md p-5 group">
               <div className="flex justify-between items-start mb-1">
-                <h4 className="text-sm font-medium text-zinc-900 group-hover:text-zinc-600 transition-colors cursor-pointer">{res.titre_projet}</h4>
+                <Link to={`/document/${res.numero_appel_offre}`} className="text-sm font-medium text-zinc-900 group-hover:text-zinc-600 transition-colors">
+                  {res.titre_projet || `Appel d'offres n°${res.numero_appel_offre}`}
+                </Link>
                 <span className="text-[10px] uppercase tracking-wider border border-zinc-200 px-2 py-0.5 rounded text-zinc-500">{res.categorie_prestation}</span>
               </div>
               <div className="flex gap-3 text-xs text-zinc-500 mb-4">
@@ -67,11 +79,31 @@ const SearchFTS = () => {
                 <span>•</span>
                 <span>{res.ville_execution}</span>
               </div>
-              <p className="text-sm text-zinc-600 bg-zinc-50 p-3 rounded-md border border-zinc-100 font-serif">
-                "{res.highlight}"
+              <p className="text-sm text-zinc-600 bg-zinc-50 p-3 rounded-md border border-zinc-100 font-serif mt-4">
+                {res.titre_projet ? "Résultat sémantique pertinent avec la requête." : "Contenu de l'appel d'offres correspond à votre recherche."}
               </p>
             </div>
           ))}
+          
+          {total > 10 && (
+            <div className="flex justify-between items-center mt-6 pt-4 border-t border-zinc-200">
+              <button 
+                onClick={() => fetchResults(page - 1)} 
+                disabled={page === 1}
+                className="px-4 py-2 bg-white border border-zinc-200 rounded text-sm disabled:opacity-50"
+              >
+                Précédent
+              </button>
+              <span className="text-sm text-zinc-500">Page {page}</span>
+              <button 
+                onClick={() => fetchResults(page + 1)} 
+                disabled={page * 10 >= total}
+                className="px-4 py-2 bg-white border border-zinc-200 rounded text-sm disabled:opacity-50"
+              >
+                Suivant
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

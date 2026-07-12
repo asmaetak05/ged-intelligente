@@ -5,6 +5,7 @@ import Topbar from './components/Topbar';
 import Dashboard from './components/Dashboard';
 import SearchFTS from './components/SearchFTS';
 import Explorer from './components/Explorer';
+import DocumentDetail from './components/DocumentDetail';
 import Upload from './components/Upload';
 import PredictorML from './components/PredictorML';
 import Monitoring from './components/Monitoring';
@@ -22,6 +23,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/search" element={<SearchFTS />} />
+                <Route path="/document/:numero" element={<DocumentDetail />} />
                 <Route path="/explorer" element={<Explorer />} />
                 <Route path="/upload" element={<Upload />} />
                 <Route path="/ml" element={<PredictorML />} />

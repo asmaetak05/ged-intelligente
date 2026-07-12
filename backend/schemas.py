@@ -50,6 +50,24 @@ class AppelOffreBase(BaseModel):
     date_ouverture_plis: Optional[str] = None
     lieu_ouverture_plis: Optional[str] = None
     categorie_marche: Optional[str] = None
+    
+    # Nouveaux champs T1.9
+    montant: Optional[float] = None
+    date_parution: Optional[str] = None
+    date_limite: Optional[str] = None
+    reference: Optional[str] = None
+    region: Optional[str] = None
+
+class MarcheFilter(BaseModel):
+    ville: Optional[str] = None
+    region: Optional[str] = None
+    organisme: Optional[str] = None
+    categorie: Optional[str] = None
+    date_min: Optional[str] = None
+    date_max: Optional[str] = None
+    montant_min: Optional[float] = None
+    montant_max: Optional[float] = None
+    q: Optional[str] = None
 
 class AppelOffreCreate(AppelOffreBase):
     pass

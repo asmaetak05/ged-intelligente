@@ -9,7 +9,10 @@ const Dashboard = () => {
 
   useEffect(() => {
     axios.get('http://127.0.0.1:8000/api/v1/analytics/kpis').then(res => setKpis(res.data)).catch(() => console.error("API error"));
-    axios.get('http://127.0.0.1:8000/api/v1/analytics/distribution/categories').then(res => setCategories(res.data)).catch(() => console.error("API error"));
+    axios.get('http://127.0.0.1:8000/api/v1/analytics/distribution/categories').then(res => {
+      const mapped = res.data.map(item => ({ name: item.categorie, value: item.count }));
+      setCategories(mapped);
+    }).catch(() => console.error("API error"));
     axios.get('http://127.0.0.1:8000/api/v1/analytics/top-buyers').then(res => setBuyers(res.data)).catch(() => console.error("API error"));
   }, []);
 
