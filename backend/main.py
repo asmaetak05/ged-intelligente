@@ -20,11 +20,11 @@ import subprocess
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import Body, Depends, FastAPI, File, HTTPException, UploadFile, BackgroundTasks
+from fastapi import Body, Depends, FastAPI, File, HTTPException, UploadFile, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
+from sqlalchemy import text, inspect
 from sqlalchemy.orm import Session
 
 from . import models, schemas
@@ -606,3 +606,96 @@ def health_check(db: Session = Depends(get_db)):
     except Exception as e:
         return JSONResponse(status_code=503, content={"status": "degraded", "error": str(e)})
     return {"status": "ok", "db": "reachable"}
+
+
+@app.get("/api/v1/system/schema")
+def get_db_schema(db: Session = Depends(get_db)):
+    """Renvoie la structure de la base de données (Tables et Colonnes)."""
+    inspector = inspect(engine)
+    schema_info = []
+    for table_name in inspector.get_table_names():
+        columns = []
+        for col in inspector.get_columns(table_name):
+            columns.append({
+                "name": col["name"],
+                "type": str(col["type"]),
+                "nullable": col["nullable"],
+                "primary_key": col.get("primary_key", 0) > 0
+            })
+        schema_info.append({"table": table_name, "columns": columns})
+    return schema_info
+
+
+import asyncio
+
+@app.websocket("/api/v1/system/ws/console")
+async def websocket_console(websocket: WebSocket):
+    """WebSocket pour exécuter les scripts du pipeline et streamer les logs."""
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_json()
+            action = data.get("action")
+            
+            import sys
+            
+            if action == "scrape":
+                # We need to run the script. First, update dates in the script if provided.
+                date_debut = data.get("date_debut")
+                date_fin = data.get("date_fin")
+                
+                if date_debut and date_fin:
+                    script_path = "scripts/collect_demo_dataset.py"
+                    with open(script_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    content = re.sub(r'DATE_DEBUT\s*=\s*".*?"', f'DATE_DEBUT = "{date_debut}"', content)
+                    content = re.sub(r'DATE_FIN\s*=\s*".*?"', f'DATE_FIN = "{date_fin}"', content)
+                    with open(script_path, "w", encoding="utf-8") as f:
+                        f.write(content)
+                
+                await run_and_stream(websocket, [sys.executable, "scripts/collect_demo_dataset.py"])
+            
+            elif action == "extract":
+                # Ensure PYTHONPATH is set so ocr modules are found
+                await run_and_stream(websocket, [sys.executable, "-m", "ingestion.extractor"], env_vars={"PYTHONPATH": "."})
+                
+            elif action == "ingest":
+                await run_and_stream(websocket, [sys.executable, "scripts/ingest_dataset.py"])
+                
+            else:
+                await websocket.send_text(f"Action inconnue: {action}")
+                
+    except WebSocketDisconnect:
+        print("Client disconnected from console")
+    except Exception as e:
+        await websocket.send_text(f"Erreur interne WebSocket: {str(e)}")
+
+
+async def run_and_stream(websocket: WebSocket, cmd: List[str], env_vars: dict = None):
+    """Exécute une commande et streame stdout/stderr vers le websocket en temps réel."""
+    env = os.environ.copy()
+    if env_vars:
+        env.update(env_vars)
+        
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        env=env
+    )
+    
+    await websocket.send_text(f"--- DÉBUT DE L'EXÉCUTION : {' '.join(cmd)} ---")
+    
+    while True:
+        line = await process.stdout.readline()
+        if not line:
+            break
+        try:
+            decoded_line = line.decode('utf-8').rstrip()
+        except UnicodeDecodeError:
+            decoded_line = line.decode('latin-1').rstrip()
+        await websocket.send_text(decoded_line)
+        
+    await process.wait()
+    await websocket.send_text(f"--- FIN DE L'EXÉCUTION (Code de retour: {process.returncode}) ---")
+

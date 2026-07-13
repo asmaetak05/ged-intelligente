@@ -8,10 +8,10 @@ PORTAIL_URL = "http://appels-offres.equipement.gov.ma/recherche/criteres.aspx"
 
 # Note from screenshot: "date parution a filtrer entre 07/2025 et 07/2026"
 DATE_DEBUT = "01/07/2025"
-DATE_FIN = "31/07/2026"
+DATE_FIN = "01/07/2026"
 
-# We want around 30 AO for the demo dataset
-LIMITE_AO = 30
+# Try up to 50 AOs but we will stop after the first success
+LIMITE_AO = 50
 
 async def aller_vers_archives(page):
     """Note 1 (Screenshot 1) : choisir AO archivés."""
@@ -168,40 +168,25 @@ async def telecharger_un_ao(context, numero_ordre):
         os.makedirs("data/raw", exist_ok=True)
         chemin_fichier = f"data/raw/AO_{numero_ordre}{extension}"
 
+        # Remplacer le clic navigateur qui pose problème par une requête directe
         try:
-            # Fallback to direct request
-            reponse = await context.request.get(url_document, headers={"Referer": page.url}, timeout=60000)
+            print(f"[{numero_ordre}] Tentative de téléchargement direct via requête HTTP...")
+            headers = {
+                "Referer": page.url,
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+            }
+            reponse = await context.request.get(url_document, headers=headers, timeout=60000)
             if reponse.ok:
+                contenu = await reponse.body()
                 with open(chemin_fichier, "wb") as f:
-                    f.write(await reponse.body())
-                print(f"[{numero_ordre}] [OK] Téléchargé : {chemin_fichier}")
+                    f.write(contenu)
+                print(f"[{numero_ordre}] [OK] Téléchargé avec succès via requête HTTP : {chemin_fichier}")
                 return True
             else:
-                print(f"[{numero_ordre}] Direct request failed with status {reponse.status}")
-        except Exception as e:
-            print(f"[{numero_ordre}] Direct request error: {e}")
-            pass
-
-        # Try click logic as shown in screenshot
-        try:
-            # Let's just click without expect_download if expect_download fails, but expect_download is safer.
-            async with page.expect_download(timeout=10000) as download_info:
-                await dao_link.click()
-            download = await download_info.value
-            await download.save_as(chemin_fichier)
-            print(f"[{numero_ordre}] [OK] Téléchargé via click : {chemin_fichier}")
-            return True
-        except Exception as e_click:
-            print(f"[{numero_ordre}] [WARN] Échec téléchargement : {e_click}")
-            
-            # FALLBACK DE DEMONSTRATION :
-            # Puisque le serveur maroc-business renvoie souvent 404 pour les vieux documents,
-            # on va générer le fichier à partir de notre sample_ao.zip pour garantir la démo.
-            print(f"[{numero_ordre}] [INFO] Génération d'un fichier de fallback pour la démo.")
-            import shutil
-            if os.path.exists("tests/fixtures/sample_ao.zip"):
-                shutil.copy("tests/fixtures/sample_ao.zip", chemin_fichier)
-                return True
+                print(f"[{numero_ordre}] [WARN] Échec : Réponse HTTP {reponse.status} pour {url_document}")
+                return False
+        except Exception as e_fetch:
+            print(f"[{numero_ordre}] [WARN] Échec téléchargement direct : {e_fetch}")
             return False
 
     except Exception as e:
@@ -223,8 +208,21 @@ def numeros_deja_telecharges():
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context(ignore_https_errors=True)
+        browser = await p.chromium.launch(
+            headless=True,
+            args=[
+                '--disable-web-security',
+                '--allow-running-insecure-content',
+                '--disable-features=InsecureDownloadWarnings',
+                '--no-sandbox'
+            ]
+        )
+        # On ajoute un User-Agent classique pour éviter le blocage 404
+        context = await browser.new_context(
+            ignore_https_errors=True,
+            accept_downloads=True,
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+        )
 
         numeros = await decouvrir_numeros_ordre(context)
 
@@ -235,7 +233,7 @@ async def main():
 
         deja_faits = numeros_deja_telecharges()
         numeros_a_faire = [n for n in numeros if n not in deja_faits]
-        print(f"\n{len(numeros) - len(numeros_a_faire)} AO déjà présents. {len(numeros_a_faire)} restants.")
+        print(f"\n{len(numeros) - len(numeros_a_faire)} AO déjà présents. {len(numeros_a_faire)} restants à tester.")
 
         reussis = 0
         for numero in numeros_a_faire:
@@ -248,3 +246,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
