@@ -55,3 +55,23 @@ ml/models/*.joblib
 *.swp
 *.swo
 .DS_Store
+
+# Backups & archives (T0.2)
+_archive/
+*.bak
+*.bak.*
+
+# SQLite runtime files
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.cache
+
+# Alembic
+alembic/__pycache__/

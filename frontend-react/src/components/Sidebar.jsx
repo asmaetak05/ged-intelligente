@@ -1,18 +1,19 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Search, Folder, UploadCloud, BrainCircuit, Activity } from 'lucide-react';
+import { LayoutDashboard, Search, Folder, UploadCloud, BrainCircuit, Activity, Server } from 'lucide-react';
 
 const Sidebar = () => {
   const location = useLocation();
   const currentPath = location.pathname;
 
   const menu = [
-    { name: 'Vue d\'ensemble', icon: LayoutDashboard, path: '/' },
+    { name: 'Vue d\'ensemble', icon: LayoutDashboard, path: '/dashboard' },
     { name: 'Recherche FTS', icon: Search, path: '/search' },
     { name: 'Explorateur', icon: Folder, path: '/explorer' },
     { name: 'Ingestion', icon: UploadCloud, path: '/upload' },
     { name: 'Modèles ML', icon: BrainCircuit, path: '/ml' },
     { name: 'Monitoring', icon: Activity, path: '/monitoring' },
+    { name: 'Pipeline & Admin', icon: Server, path: '/pipeline' },
   ];
 
   return (

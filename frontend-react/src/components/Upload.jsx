@@ -21,7 +21,7 @@ const Upload = () => {
     formData.append("file", selectedFile);
 
     try {
-      await axios.post('http://127.0.0.1:8000/api/v1/ged/documents/upload', formData, {
+      const uploadRes = await axios.post('http://127.0.0.1:8000/api/v1/ged/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (evt) => {
           const percent = Math.round((evt.loaded * 100) / evt.total);
@@ -29,13 +29,27 @@ const Upload = () => {
         }
       });
       
-      // Simulate backend processing progress after upload
-      const interval = setInterval(() => {
-        setProgress(p => {
-          if (p >= 100) { clearInterval(interval); return 100; }
-          return p + 10;
-        });
-      }, 500);
+      const docId = uploadRes.data.document_id;
+      
+      // Real backend processing progress polling
+      const interval = setInterval(async () => {
+        try {
+          const statusRes = await axios.get(`http://127.0.0.1:8000/api/v1/ged/documents/${docId}/preview`);
+          const st = statusRes.data.status;
+          
+          if (st === 'UPLOADED' || st === 'EXTRACTED') {
+            setProgress(60);
+          } else if (st === 'OCR_PROCESSED' || st === 'NLP_PROCESSED') {
+            setProgress(100);
+            clearInterval(interval);
+          } else if (st === 'FAILED') {
+            clearInterval(interval);
+            console.error("Processing failed");
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }, 2000);
 
     } catch (err) {
       console.error("Upload failed", err);

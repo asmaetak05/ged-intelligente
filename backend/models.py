@@ -1,7 +1,20 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Float, ForeignKey, Boolean, Enum as SQLEnum, Numeric, Date, Index
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Enum as SQLEnum,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    JSON,
+    Numeric,
+    String,
+    Text,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import TSVECTOR, ARRAY
 from .database import Base
 import enum
 
@@ -47,24 +60,38 @@ class Marche(Base):
     id = Column(Integer, primary_key=True, index=True)
     document_source_id = Column(Integer, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
     numero_appel_offre = Column(String(50), unique=True, nullable=False, index=True)
+    reference = Column(String(100), nullable=True, index=True)
     titre_projet = Column(Text, nullable=False)
     organisme_acheteur = Column(String(255), nullable=False)
     categorie_prestation = Column(SQLEnum(CategorieMarche), nullable=True)
-    
+
+    # --- Volet financier ---
+    montant = Column(Numeric(15, 2), nullable=True, index=True)
     budget_estimatif_mad = Column(Numeric(15, 2), nullable=True, index=True)
     caution_provisoire_mad = Column(Numeric(15, 2), nullable=True)
     caution_definitive_pct = Column(Numeric(4, 2), default=3.00)
+
+    # --- Volet délais ---
     delai_execution_mois = Column(Integer, nullable=True)
     penalite_retard_mille = Column(Numeric(4, 2), default=1.00)
-    
+    date_parution = Column(Date, nullable=True, index=True)
     date_publication = Column(Date, nullable=True)
+    date_limite = Column(Date, nullable=True, index=True)
     date_limite_depot = Column(DateTime, nullable=True, index=True)
+
+    # --- Volet géographique ---
     ville_execution = Column(String(100), nullable=True)
-    
-    agreements_exiges = Column(ARRAY(String(50)), nullable=True)
-    seuil_technique_elimination = Column(Numeric(5,2), nullable=True)
-    
-    tsv_search = Column(TSVECTOR, nullable=True)
+    region = Column(String(100), nullable=True, index=True)
+
+    # --- Volet technique ---
+    # ARRAY(String) n'est pas portable SQLite ; on utilise JSON (list[str] sérialisée).
+    agreements_exiges = Column(JSON, nullable=True)
+    seuil_technique_elimination = Column(Numeric(5, 2), nullable=True)
+
+    # --- Indexation FTS : TSVECTOR est PostgreSQL-only ; on conserve un Text
+    # --- qui sera peuplé/maintenu côté application. Le GIN index est ajouté
+    # --- uniquement côté PostgreSQL via une migration Alembic dédiée.
+    tsv_search = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     document_source = relationship("Document", back_populates="marches")
@@ -72,7 +99,9 @@ class Marche(Base):
     ml_insights = relationship("MlInsight", back_populates="marche", cascade="all, delete-orphan")
 
     __table_args__ = (
-        Index('idx_marches_tsv', 'tsv_search', postgresql_using='gin'),
+        # Index simple portable SQLite + PostgreSQL. Le GIN/tsvector ne sera
+        # ajouté que dans une migration Alembic conditionnelle au dialecte.
+        Index('idx_marches_tsv', 'tsv_search'),
     )
 
 class OcrLog(Base):
@@ -112,3 +141,17 @@ class MlInsight(Base):
     generated_at = Column(DateTime(timezone=True), server_default=func.now())
 
     marche = relationship("Marche", back_populates="ml_insights")
+
+class ExtractionNlp(Base):
+    __tablename__ = "extractions_nlp"
+
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    field_name = Column(String(100), nullable=False)
+    value = Column(Text, nullable=True)
+    source = Column(String(50), nullable=True)
+    score = Column(Numeric(5, 4), nullable=True)
+    snippet = Column(Text, nullable=True)
+    extracted_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    document = relationship("Document", backref="extractions")

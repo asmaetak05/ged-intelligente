@@ -1,92 +1,64 @@
-# Projet PFA : GED Intelligente pour les Marchés Publics
+# GED Intelligente — Plateforme de Marchés Publics
 
-Bienvenue dans le dépôt du Projet de Fin d'Année (PFA) : une plateforme de Gestion Électronique des Documents dopée à l'Intelligence Artificielle et à l'OCR.
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Python](https://img.shields.io/badge/python-3.11-blue)
+![React](https://img.shields.io/badge/React-19-cyan)
+![Machine Learning](https://img.shields.io/badge/ML-Scikit_Learn-orange)
+![Coverage](https://img.shields.io/badge/Coverage-70%25-green)
 
-Ce guide décrit la procédure exacte pour configurer et lancer le projet (Backend & Frontend) sur un **nouveau poste de travail Windows, Mac ou Linux**.
+Plateforme automatisée de **Gestion Électronique des Documents (GED)** intégrant des pipelines d'Intelligence Artificielle (Scraping, OCR, NLP, ML) conçue spécifiquement pour analyser les Appels d'Offres du Ministère de l'Équipement au Maroc.
 
----
+## Fonctionnalités Clés
 
-## 🛠️ Prérequis Système
+- 🤖 **Bot de Scraping Asynchrone** (Playwright) pour la collecte automatique des archives.
+- 👁️ **Pipeline d'Extraction OCR Hybride** (PyMuPDF / Tesseract) supportant les PDF natifs et numérisés.
+- 🧠 **Moteur NLP et ML** : Reconnaissance sémantique des montants (Regex/spaCy) et classification automatisée des catégories (SVM).
+- 📊 **Tableau de Bord Décisionnel (BI)** : Interface moderne en React JS (Tailwind, Recharts).
+- 🔎 **Recherche Sémantique (FTS)** : Indexation puissante des mots contenus dans les dizaines de pages des DCE.
 
-Avant de commencer, assurez-vous d'avoir installé les logiciels suivants sur votre machine :
+## Architecture
 
-1. **Python 3.10 ou supérieur** (Cocher "Add to PATH" lors de l'installation).
-2. **Node.js (LTS - 18.x ou 20.x)** (Inclut `npm`).
-3. **Tesseract OCR** (Moteur de reconnaissance de caractères) :
-   - *Windows* : Télécharger depuis [UB-Mannheim](https://github.com/UB-Mannheim/tesseract/wiki). Noter le chemin d'installation (ex: `C:\Program Files\Tesseract-OCR\tesseract.exe`).
-   - *Mac* : `brew install tesseract tesseract-lang`
-   - *Linux* : `sudo apt-get install tesseract-ocr tesseract-ocr-fra tesseract-ocr-ara`
-4. **Poppler** (Nécessaire pour convertir les PDF en images) :
-   - *Windows* : Télécharger [Poppler for Windows](https://github.com/oschwartz10612/poppler-windows/releases/), extraire et ajouter le dossier `bin` aux variables d'environnement PATH.
-   - *Mac* : `brew install poppler`
-   - *Linux* : `sudo apt-get install poppler-utils`
+Le projet est conçu en 4 couches indépendantes :
+- `ingestion/` (L1) : Scraping et orchestration des traitements.
+- `ocr/` & `nlp/` (L2) : Conversion d'image vers texte et reconnaissance des entités nommées.
+- `backend/` & `ml/` (L3) : Serveur API FastAPI performant, BDD unifiée (SQLite / PostgreSQL), Algorithmes d'anomalies financières.
+- `frontend-react/` (L4) : Interface Web métier.
 
----
+👉 [Consulter l'architecture détaillée](docs/architecture.md).
 
-## ⚙️ Étape 1 : Configuration du Backend (Python / FastAPI)
+## Démarrage Rapide
 
-Le backend gère l'extraction NLP, la base de données SQLite/PostgreSQL et l'API.
+```bash
+# Cloner le projet
+git clone https://github.com/votre-organisation/ged-intelligente.git
+cd ged-intelligente
 
-1. **Ouvrir un Terminal** à la racine du projet (`ged-intelligente`).
-2. **Créer un environnement virtuel Python** :
-   ```bash
-   python -m venv .venv
-   ```
-3. **Activer l'environnement virtuel** :
-   - *Windows (PowerShell)* : `.\.venv\Scripts\Activate.ps1`
-   - *Windows (CMD)* : `.\.venv\Scripts\activate.bat`
-   - *Mac / Linux* : `source .venv/bin/activate`
-4. **Installer les dépendances requises** :
-   ```bash
-   pip install -r requirements.txt
-   ```
-5. **Configuration Environnement** :
-   - Copiez le fichier `.env.example` en le renommant `.env`.
-   - Modifiez le chemin Tesseract dans le code (si Windows) si nécessaire dans les scripts OCR. La base de données utilisera automatiquement le fichier local `ged.db` (Mode Mock).
-6. **Lancer le serveur FastAPI** :
-   ```bash
-   uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
-   ```
-   *Le serveur API est maintenant actif sur `http://127.0.0.1:8000`. Vous pouvez consulter la documentation technique de l'API sur `http://127.0.0.1:8000/docs`.*
+# Activer l'environnement Python
+python -m venv .venv
+.venv\Scripts\Activate.ps1   # (Sous Windows)
+source .venv/bin/activate    # (Sous Linux/macOS)
 
----
+# Installer les dépendances backend
+pip install -r requirements.txt
+playwright install --with-deps chromium
+python -m spacy download fr_core_news_sm
 
-## 🎨 Étape 2 : Configuration du Frontend (React / Vite)
+# Lancer l'API Backend
+alembic upgrade head
+uvicorn backend.main:app --reload
 
-Le frontend est l'interface utilisateur minimaliste propulsée par React et Tailwind CSS.
+# Ouvrir un second terminal pour le frontend
+cd frontend-react
+npm install
+npm run dev
+```
 
-1. **Ouvrir un nouveau Terminal** (gardez le backend actif dans le premier terminal).
-2. **Naviguer dans le dossier Frontend** :
-   ```bash
-   cd frontend-react
-   ```
-3. **Installer les dépendances Node.js** :
-   ```bash
-   npm install
-   ```
-4. **Lancer le serveur de développement Vite** :
-   ```bash
-   npm run dev
-   ```
-5. **Accéder à l'application** :
-   Le terminal vous affichera une URL, généralement `http://localhost:5173/`. Cliquez dessus pour ouvrir l'interface.
+👉 [Voir le Guide d'Installation complet](docs/installation.md) et le [Guide Utilisateur](docs/user_guide.md).
 
----
+## Documentation et Livrables de Projet
 
-## 📁 Architecture des Dossiers
-
-- `backend/` : Cœur de l'API FastAPI et Modèles ORM.
-- `docs/realisations/` : Documentation détaillée des modules (Ingestion, Frontend, Backend, IA).
-- `frontend-react/` : Code source de l'interface utilisateur.
-- `ged.db` : Base de données SQLite locale contenant les données extraites lors des tests NLP.
-- `nlp/` & `ocr/` : Scripts d'intelligence artificielle et d'extraction de texte.
-
----
-
-## 🚀 Fonctionnalités Opérationnelles
-- **Ingestion ZIP** via Drag & Drop.
-- **Tableau de Bord** analytique branché sur la donnée SQLite réelle.
-- **Moteur de Recherche** des marchés publics extraits.
-- **Monitoring** temps réel.
-
-*Projet développé dans le cadre du Projet de Fin d'Année (PFA).*
+La documentation se trouve dans le dossier `docs/` :
+- `docs/Rapport_Stage.md` : Rapport complet pour soutenance.
+- `docs/Slides_Soutenance.md` : Présentation détaillée par slide.
+- `docs/Scenario_Demo.md` : Déroulé chronométré pour la démonstration au jury.
+- `docs/realisations/` : Le détail technique, étape par étape, des différentes phases implémentées.
