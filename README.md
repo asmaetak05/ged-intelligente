@@ -10,11 +10,11 @@ Plateforme automatisée de **Gestion Électronique des Documents (GED)** intégr
 
 ## Fonctionnalités Clés
 
-- 🤖 **Bot de Scraping Asynchrone** (Playwright) pour la collecte automatique des archives.
-- 👁️ **Pipeline d'Extraction OCR Hybride** (PyMuPDF / Tesseract) supportant les PDF natifs et numérisés.
-- 🧠 **Moteur NLP et ML** : Reconnaissance sémantique des montants (Regex/spaCy) et classification automatisée des catégories (SVM).
-- 📊 **Tableau de Bord Décisionnel (BI)** : Interface moderne en React JS (Tailwind, Recharts).
-- 🔎 **Recherche Sémantique (FTS)** : Indexation puissante des mots contenus dans les dizaines de pages des DCE.
+-  **Bot de Scraping Asynchrone** (Playwright) pour la collecte automatique des archives.
+-  **Pipeline d'Extraction OCR Hybride** (PyMuPDF / Tesseract) supportant les PDF natifs et numérisés.
+-  **Moteur NLP et ML** : Reconnaissance sémantique des montants (Regex/spaCy) et classification automatisée des catégories (SVM).
+-  **Tableau de Bord Décisionnel (BI)** : Interface moderne en React JS (Tailwind, Recharts).
+-  **Recherche Sémantique (FTS)** : Indexation puissante des mots contenus dans les dizaines de pages des DCE.
 
 ## Architecture
 
