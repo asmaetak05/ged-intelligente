@@ -46,7 +46,7 @@ def process_document_async(document_id: int, file_path: str, db: Session = None)
                         document_id=doc.id,
                         field_name=old_ext.field_name,
                         value=old_ext.value,
-                        source=old_ext.source,
+                        source_extractor=old_ext.source_extractor,
                         score=old_ext.score,
                         snippet=old_ext.snippet
                     )
@@ -64,35 +64,73 @@ def process_document_async(document_id: int, file_path: str, db: Session = None)
         doc.status = models.DocStatus.extracted
         db.commit()
 
-        # Run extraction
-        ok, payload, raw_fields = process_archive(file_path)
+        # Initialiser ou récupérer OcrLog (OC-04)
+        ocr_log = db.query(models.OcrLog).filter(models.OcrLog.document_id == document_id).first()
+        if not ocr_log:
+            ocr_log = models.OcrLog(
+                document_id=document_id,
+                engine_name="Pipeline OCR+NLP",
+                confidence_score_avg=85.0,
+                last_processed_page=0,
+                total_pages=None
+            )
+            db.add(ocr_log)
+            db.commit()
+            db.refresh(ocr_log)
+
+        # Reprise OCR par lot de 10 pages (OC-04)
+        chunk_size = 10
+        start_page = (ocr_log.last_processed_page or 0) + 1
         
+        ok = False
+        payload = None
+        raw_fields = None
+        total_pages = ocr_log.total_pages or 999999
+        
+        while start_page <= total_pages:
+            end_page = start_page + chunk_size - 1
+            logging.info(f"[{doc.id}] Traitement des pages {start_page} à {end_page}...")
+            
+            ok, payload, raw_fields, total_pages_pdf = process_archive(file_path, start_page=start_page, end_page=end_page)
+            
+            if total_pages_pdf > 0:
+                total_pages = total_pages_pdf
+                ocr_log.total_pages = total_pages
+                
+            if not ok or start_page > total_pages:
+                break
+                
+            ocr_log.last_processed_page = min(end_page, total_pages)
+            db.commit()
+            start_page += chunk_size
+
         if not ok:
             doc.status = models.DocStatus.failed
             db.commit()
             return
 
-        # Add OcrLog
-        confidence = 0.85 # Heuristic for now
-        ocr_log = models.OcrLog(
-            document_id=document_id,
-            engine_name="Pipeline OCR+NLP",
-            confidence_score_avg=confidence * 100
-        )
-        db.add(ocr_log)
-
-        # Add ExtractionNlp
+        # Add or Update ExtractionNlp
         if raw_fields and "fields" in raw_fields:
             for field, data in raw_fields["fields"].items():
-                ext = models.ExtractionNlp(
-                    document_id=document_id,
-                    field_name=field,
-                    value=str(data["value"]) if data["value"] else None,
-                    source=data["source"],
-                    score=data["score"],
-                    snippet=data["snippet"]
-                )
-                db.add(ext)
+                ext = db.query(models.ExtractionNlp).filter(
+                    models.ExtractionNlp.document_id == document_id,
+                    models.ExtractionNlp.field_name == field
+                ).first()
+                if ext:
+                    ext.value = str(data["value"]) if data["value"] else None
+                    ext.source_extractor = data["source"]
+                    ext.score = data["score"]
+                    ext.snippet = data["snippet"]
+                else:
+                    ext = models.ExtractionNlp(
+                        document_id=document_id,
+                        field_name=field,
+                        value=str(data["value"]) if data["value"] else None,
+                        source_extractor=data["source"],
+                        score=data["score"],
+                        snippet=data["snippet"]
+                    )
+                    db.add(ext)
 
         db.commit()
 
@@ -109,6 +147,9 @@ def process_document_async(document_id: int, file_path: str, db: Session = None)
                         marche.document_source_id = document_id
             except Exception as e:
                 logging.error(f"Error creating marche: {e}")
+
+        if raw_fields and "low_quality" in raw_fields:
+            doc.low_quality = raw_fields["low_quality"]
 
         doc.status = models.DocStatus.ocr_processed
         db.commit()

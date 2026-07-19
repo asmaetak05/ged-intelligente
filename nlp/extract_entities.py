@@ -1,6 +1,9 @@
 import re
 from nlp.normalize import normalize_date, normalize_money, normalize_mois
 from nlp.villes_maroc import VILLES_MAROC
+from nlp.extract_typeavis import extract_type_avis
+from nlp.extract_qualif import extract_qualif
+from nlp.extract_agrement import extract_agrement
 
 nlp = None
 
@@ -134,31 +137,19 @@ def extract(text: str) -> dict:
         add_field("maitre_ouvrage", mo_candidate, mo_source, mo_score, mo_snippet)
 
     # Type d'avis (NLP-01)
-    type_avis_match = re.search(
-        r"appel\s+d['’]?offres?\s+(ouvert|restreint|simplifié|négocié)|concours|bon\s+de\s+commande", 
-        text_clean, 
-        re.IGNORECASE
-    )
-    if type_avis_match:
-        add_field("type_avis", type_avis_match.group(0).strip().capitalize(), "regex", 0.9, type_avis_match.group(0))
+    type_avis_res = extract_type_avis(text_clean)
+    if type_avis_res:
+        add_field("type_avis", type_avis_res["value"], type_avis_res["source"], type_avis_res["score"], type_avis_res["snippet"])
 
     # Qualifications requises (NLP-02)
-    qualif_match = re.search(
-        r"(?:qualifications?\s+(?:et\s+classifications?\s+)?(?:exig[ée]es?\s+)?)(?:de\s+)?(?:classe|cat[ée]gorie)?\s*\b([Qq][1-6]|[A-S])\b", 
-        text_clean, 
-        re.IGNORECASE
-    )
-    if qualif_match:
-        add_field("qualification", qualif_match.group(1).upper(), "regex", 0.8, qualif_match.group(0))
+    qualif_res = extract_qualif(text_clean)
+    if qualif_res:
+        add_field("qualification", qualif_res["value"], qualif_res["source"], qualif_res["score"], qualif_res["snippet"])
 
     # Agréments requis (NLP-03)
-    agrement_match = re.search(
-        r"agr[ée]ments?\s+(?:exig[ée]s?\s+)?(?:de\s+classe\s+)?\b([A-Z][0-9]{1,2})\b", 
-        text_clean, 
-        re.IGNORECASE
-    )
-    if agrement_match:
-        add_field("agrement", agrement_match.group(1).upper(), "regex", 0.8, agrement_match.group(0))
+    agrement_res = extract_agrement(text_clean)
+    if agrement_res:
+        add_field("agrement", agrement_res["value"], agrement_res["source"], agrement_res["score"], agrement_res["snippet"])
 
     # Categorie
     cat_mots = {"travaux": 0, "fournitures": 0, "services": 0, "etudes": 0}
@@ -168,5 +159,46 @@ def extract(text: str) -> dict:
     best_cat = max(cat_mots, key=cat_mots.get)
     if cat_mots[best_cat] > 0:
         add_field("categorie_marche", best_cat.capitalize(), "keyword", 0.7, f"Mots clés: {cat_mots}")
+
+    # Modèle d'avis (NLP-06)
+    modele_match = re.search(r"avis\s+(12-10|13-10|standard)", text_clean, re.IGNORECASE)
+    if modele_match:
+        add_field("modele_avis", modele_match.group(1).strip(), "regex", 0.9, modele_match.group(0))
+
+    # Contacts: Téléphone (NLP-07)
+    tel_match = re.search(r"(?:\+212|0)[5-7]\d{8}", text_clean)
+    if tel_match:
+        add_field("telephone", tel_match.group(0), "regex", 0.9, tel_match.group(0))
+
+    # Contacts: Email (NLP-07)
+    email_match = re.search(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", text_clean)
+    if email_match:
+        add_field("email", email_match.group(0), "regex", 0.9, email_match.group(0))
+
+    # Date d'ouverture des plis (NLP-04)
+    ouverture_match = re.search(r"s[ée]ance\s+d['’]ouverture.*?(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s*(?:à\s*)?\d{1,2}h\d{0,2})", text_clean, re.IGNORECASE)
+    if ouverture_match:
+        add_field("date_ouverture_plis", normalize_date(ouverture_match.group(1).split(" ")[0].split("à")[0]), "regex", 0.85, ouverture_match.group(0))
+
+    # Références réglementaires (NLP-08)
+    reg_match = re.search(r"(article\s+\d+\s+du\s+d[ée]cret\s+n[°º]?\s*[\d-]+)", text_clean, re.IGNORECASE)
+    if reg_match:
+        add_field("reference_reglementaire", reg_match.group(1), "regex", 0.85, reg_match.group(0))
+
+    # Détection de langue (NLP-11)
+    try:
+        from langdetect import detect
+        lang = detect(text_clean[:500] if len(text_clean) > 500 else text_clean)
+        add_field("langue_detectee", lang, "langdetect", 0.9, "")
+    except Exception:
+        pass
+
+    # Détection de qualité (NLP-13)
+    # Si on a trouvé moins de 3 champs pertinents (hors "langue_detectee")
+    champs_trouves = [k for k in info["fields"].keys() if k != "langue_detectee"]
+    if len(champs_trouves) < 3:
+        info["low_quality"] = True
+    else:
+        info["low_quality"] = False
 
     return info

@@ -2,6 +2,17 @@ import pytest
 import os
 from backend.tasks import process_document_async
 from backend import models
+from backend.main import app
+from backend.auth.rbac import get_current_user
+
+def override_get_current_user():
+    return models.User(id=1, username="testadmin", is_active=True, roles=[models.Role(name="admin")])
+
+@pytest.fixture(autouse=True)
+def override_dependencies():
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    yield
+    app.dependency_overrides.clear()
 
 @pytest.fixture
 def sample_zip_path():
@@ -45,22 +56,13 @@ def test_upload_creates_document(client, sample_zip_path):
     assert "document_id" in data
     assert data["status"] == "queued"
 
-def test_upload_corrupt_zip(client, tmp_path):
+def test_upload_corrupt_zip(client, db_session, tmp_path):
     corrupt_zip = tmp_path / "corrupt.zip"
     corrupt_zip.write_text("This is not a zip file")
     
     with open(corrupt_zip, "rb") as f:
         response = client.post("/api/v1/ged/documents/upload", files={"file": ("corrupt.zip", f, "application/zip")})
-    assert response.status_code == 200
-    doc_id = response.json()["document_id"]
+    assert response.status_code == 400
+    assert "invalide" in response.json()["detail"].lower()
     
-    # Process it synchronously for testing
-    from backend.tasks import process_document_async
-    from backend.database import SessionLocal
     
-    with SessionLocal() as db:
-        process_document_async(doc_id, str(corrupt_zip), db)
-        db.commit()
-        
-        doc = db.query(models.Document).filter_by(id=doc_id).first()
-        assert doc.status == models.DocStatus.failed

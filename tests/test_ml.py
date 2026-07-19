@@ -30,6 +30,8 @@ def test_ml_anomaly():
     import os
     
     db_path = "test_ml_anomaly.db"
+    if os.path.exists(db_path):
+        os.remove(db_path)
     db_url = f"sqlite:///{db_path}"
     eng = create_engine(db_url)
     Base.metadata.create_all(eng)

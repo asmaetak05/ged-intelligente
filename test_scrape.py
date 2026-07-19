@@ -38,4 +38,6 @@ async def run():
                 print(f"Link {i}: text='{text}', href='{href}', target='{target}', onclick='{onclick}'")
         await browser.close()
 
-asyncio.run(run())
+if __name__ == "__main__":
+    asyncio.run(run())
+
