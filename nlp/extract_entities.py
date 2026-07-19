@@ -31,7 +31,7 @@ def extract(text: str) -> dict:
                 "score": score,
                 "snippet": snippet
             }
-
+            
     # Objet
     objet_match = re.search(r"objet\s*(?:de\s*l['’]?appel\s*d['’]?offres)?\s*[\:\-]\s*(.*?)(?=\. |Caution|Estimation|Date)", text_clean, re.IGNORECASE)
     if objet_match:
@@ -81,17 +81,84 @@ def extract(text: str) -> dict:
     if ville_trouvee:
         add_field("region", ville_trouvee, "lookup", 0.7, ville_trouvee)
 
-    # Maitre ouvrage (via Spacy ORG ou regex fallback)
-    mo_match = re.search(r"(?:royaume du maroc|maitre d['’]?ouvrage)\s*[:\-]?\s*(.*?)(?=\. |Objet|Le)", text_clean, re.IGNORECASE)
+    # Refactored Maitre ouvrage extraction (NLP-16)
+    mo_candidate = None
+    mo_source = "none"
+    mo_score = 0.0
+    mo_snippet = ""
+    
+    mo_match = re.search(
+        r"(?:maitre\s+d['’]?ouvrage|acheteur\s+public|organisme\s+acheteur)\s*[:\-]?\s*([^.]+?)(?=\. |Objet|Le|Caution|Estimation|Date|Avis|Appel|\bdu\b|\bau\b)",
+        text_clean,
+        re.IGNORECASE
+    )
+    if mo_match:
+        cand = mo_match.group(1).strip()
+        cand_clean = re.sub(r'^(royaume du maroc\s*|ministère de\s*)', '', cand, flags=re.IGNORECASE).strip()
+        if 5 < len(cand_clean) < 150:
+            mo_candidate = cand
+            mo_source = "regex"
+            mo_score = 0.85
+            mo_snippet = mo_match.group(0)
+
     if nlp:
         doc = nlp(text_clean[:2000])
-        orgs = [ent.text for ent in doc.ents if ent.label_ == "ORG"]
+        orgs = []
+        for ent in doc.ents:
+            if ent.label_ == "ORG":
+                t = ent.text.strip()
+                if 5 < len(t) < 100 and not any(junk in t.lower() for junk in ["royaume", "maroc", "objet", "cps", "règlement"]):
+                    orgs.append((t, ent.text))
+        
         if orgs:
-            add_field("maitre_ouvrage", orgs[0], "spacy", 0.8, orgs[0])
-        elif mo_match:
-            add_field("maitre_ouvrage", mo_match.group(1).strip(), "regex", 0.6, mo_match.group(0))
-    elif mo_match:
-        add_field("maitre_ouvrage", mo_match.group(1).strip(), "regex", 0.6, mo_match.group(0))
+            if mo_candidate:
+                for org_t, snippet in orgs:
+                    if org_t.lower() in mo_candidate.lower() or mo_candidate.lower() in org_t.lower():
+                        mo_score = 0.95
+                        mo_source = "regex+spacy"
+                        break
+            else:
+                mo_candidate = orgs[0][0]
+                mo_source = "spacy"
+                mo_score = 0.75
+                mo_snippet = orgs[0][1]
+                
+    if not mo_candidate and mo_match:
+        mo_candidate = mo_match.group(1).strip()
+        mo_source = "regex"
+        mo_score = 0.6
+        mo_snippet = mo_match.group(0)
+        
+    if mo_candidate:
+        mo_candidate = re.sub(r'\s+', ' ', mo_candidate).strip()
+        add_field("maitre_ouvrage", mo_candidate, mo_source, mo_score, mo_snippet)
+
+    # Type d'avis (NLP-01)
+    type_avis_match = re.search(
+        r"appel\s+d['’]?offres?\s+(ouvert|restreint|simplifié|négocié)|concours|bon\s+de\s+commande", 
+        text_clean, 
+        re.IGNORECASE
+    )
+    if type_avis_match:
+        add_field("type_avis", type_avis_match.group(0).strip().capitalize(), "regex", 0.9, type_avis_match.group(0))
+
+    # Qualifications requises (NLP-02)
+    qualif_match = re.search(
+        r"(?:qualifications?\s+(?:et\s+classifications?\s+)?(?:exig[ée]es?\s+)?)(?:de\s+)?(?:classe|cat[ée]gorie)?\s*\b([Qq][1-6]|[A-S])\b", 
+        text_clean, 
+        re.IGNORECASE
+    )
+    if qualif_match:
+        add_field("qualification", qualif_match.group(1).upper(), "regex", 0.8, qualif_match.group(0))
+
+    # Agréments requis (NLP-03)
+    agrement_match = re.search(
+        r"agr[ée]ments?\s+(?:exig[ée]s?\s+)?(?:de\s+classe\s+)?\b([A-Z][0-9]{1,2})\b", 
+        text_clean, 
+        re.IGNORECASE
+    )
+    if agrement_match:
+        add_field("agrement", agrement_match.group(1).upper(), "regex", 0.8, agrement_match.group(0))
 
     # Categorie
     cat_mots = {"travaux": 0, "fournitures": 0, "services": 0, "etudes": 0}

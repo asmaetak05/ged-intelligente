@@ -43,6 +43,9 @@ data/processed/json/*
 !data/processed/json/.gitkeep
 data/samples/*
 !data/samples/.gitkeep
+data/ocr_cache/*
+!data/ocr_cache/.gitkeep
+
 
 # Modèles ML
 ml/models/*.pkl

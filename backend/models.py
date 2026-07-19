@@ -49,6 +49,7 @@ class Document(Base):
     inferred_type = Column(SQLEnum(DocType), default=DocType.Inconnu)
     status = Column(SQLEnum(DocStatus), default=DocStatus.raw_zip)
     file_size_kb = Column(Integer, nullable=True)
+    checksum_sha256 = Column(String(64), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     marches = relationship("Marche", back_populates="document_source")

@@ -172,13 +172,37 @@ async def upload_document(
         
     file_size_kb = os.path.getsize(file_path) // 1024
 
+    # Calculer le hash SHA-256 (ING-04)
+    import hashlib
+    sha256_hash = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    checksum = sha256_hash.hexdigest()
+
+    # Déduplication (ING-04)
+    existing_doc = db.query(models.Document).filter(
+        models.Document.checksum_sha256 == checksum,
+        models.Document.status == models.DocStatus.ocr_processed
+    ).first()
+
+    if existing_doc:
+        print(f"[Upload] Document avec hash {checksum} déjà traité (ID: {existing_doc.id}). Skip.")
+        return {
+            "document_id": existing_doc.id,
+            "message": "Document déjà traité (déduplication active)",
+            "filename": file.filename,
+            "status": "ocr_processed"
+        }
+
     doc = models.Document(
         archive_name=safe_name,
         file_name=file.filename or safe_name,
         extension="zip",
         storage_path=file_path,
         status=models.DocStatus.raw_zip,
-        file_size_kb=file_size_kb
+        file_size_kb=file_size_kb,
+        checksum_sha256=checksum
     )
     db.add(doc)
     db.commit()
