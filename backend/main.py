@@ -19,15 +19,31 @@ import os
 import subprocess
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
+import uuid
+import structlog
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from backend.logging_config import setup_logging
+from backend.limiter import limiter
 
-from fastapi import Body, Depends, FastAPI, File, HTTPException, UploadFile, BackgroundTasks, WebSocket, WebSocketDisconnect
+setup_logging()
+logger = structlog.get_logger()
+
+from fastapi import Body, Depends, FastAPI, File, HTTPException, UploadFile, BackgroundTasks, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text, inspect
 from sqlalchemy.orm import Session
+from backend.auth.auth_router import router as auth_router
+from backend.auth.forgot_password import router as forgot_password_router
+from backend.routers.users import router as users_router
+from backend.routers.audit import router as audit_router
+from backend.routers.scraper import router as scraper_router
+from backend.auth.rbac import RequireRole, get_current_user
+from backend.auth.auth_handler import get_password_hash
 
-from . import models, schemas
+from . import models
 from .database import Base, engine, get_db
 from .repository import (
     DocumentRepository,
@@ -51,13 +67,60 @@ app = FastAPI(
     ),
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    # Skip handling HTTPException to let FastAPI handle it
+    if isinstance(exc, HTTPException):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+        
+    req_id = structlog.contextvars.get_contextvars().get("request_id", "unknown")
+    logger.exception("Unhandled exception", exc_info=exc, request_id=req_id, path=request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "type": "about:blank",
+            "title": "Internal Server Error",
+            "status": 500,
+            "detail": "Une erreur interne inattendue s'est produite.",
+            "instance": req_id
+        }
+    )
+
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    req_id = str(uuid.uuid4())
+    structlog.contextvars.clear_contextvars()
+    structlog.contextvars.bind_contextvars(request_id=req_id, path=request.url.path, method=request.method)
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = req_id
+    return response
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+app.include_router(auth_router)
+app.include_router(forgot_password_router)
+app.include_router(users_router)
+app.include_router(audit_router)
+app.include_router(scraper_router)
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +134,51 @@ def _on_startup() -> None:
     except Exception as e:
         # On ne crash pas : l'API peut fonctionner en mode dégradé si
         # certaines tables existent déjà, ou afficher des messages clairs.
-        print(f"[startup] ATTENTION: initialisation partielle ({e}).")
+        logger.warning("initialisation partielle", error=str(e))
+        
+    # Seed default admin user
+    from backend.database import SessionLocal
+    from backend.models import User, Role
+    with SessionLocal() as db:
+        admin_role = db.query(Role).filter(Role.name == "admin").first()
+        if not admin_role:
+            admin_role = Role(name="admin", description="Administrateur système")
+            db.add(admin_role)
+            db.commit()
+            db.refresh(admin_role)
+
+        admin_user = db.query(User).filter(User.username == "admin").first()
+        if not admin_user:
+            hashed_pw = get_password_hash("admin123")
+            new_admin = User(
+                username="admin",
+                email="admin@ged-intelligente.local",
+                hashed_password=hashed_pw,
+                roles=[admin_role]
+            )
+            db.add(new_admin)
+            db.commit()
+            logger.info("Default admin user created", username="admin")
+
+
+# ---------------------------------------------------------------------------
+# Monitoring Système
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/system/health", tags=["system"])
+def system_health(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+        db_status = "ok"
+    except Exception as e:
+        db_status = "error"
+        logger.error("DB health check failed", error=str(e))
+        raise HTTPException(status_code=503, detail="Database is unavailable")
+        
+    return {
+        "status": "ok",
+        "database": db_status,
+        "timestamp": datetime.utcnow().isoformat()
+    }
 
 
 # ===========================================================================
@@ -152,12 +259,27 @@ def _marche_to_legacy(marche: models.Marche) -> Dict[str, Any]:
 # ===========================================================================
 @app.post("/api/v1/ged/documents/upload")
 async def upload_document(
-    background_tasks: BackgroundTasks, file: UploadFile = File(...), db: Session = Depends(get_db)
+    background_tasks: BackgroundTasks, file: UploadFile = File(...), db: Session = Depends(get_db),
+    user=Depends(RequireRole(["analyst"]))
 ):
     """Upload d'un document (traitement asynchrone déclenché)."""
     import os
     import uuid
     import shutil
+    
+    # Validation stricte (SE-08)
+    magic = await file.read(4)
+    if magic != b"PK\x03\x04":
+        raise HTTPException(status_code=400, detail="Type de fichier invalide. Seuls les fichiers ZIP sont autorisés.")
+    await file.seek(0)
+    
+    MAX_UPLOAD_SIZE = 100 * 1024 * 1024 # 100 MB max for example
+    file.file.seek(0, 2)
+    file_size = file.file.tell()
+    await file.seek(0)
+    
+    if file_size > MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=413, detail=f"Fichier trop volumineux. Max: {MAX_UPLOAD_SIZE/1024/1024} MB")
     
     os.makedirs("data/raw", exist_ok=True)
     # Check if we can infer numero_ordre from filename
@@ -172,13 +294,37 @@ async def upload_document(
         
     file_size_kb = os.path.getsize(file_path) // 1024
 
+    # Calculer le hash SHA-256 (ING-04)
+    import hashlib
+    sha256_hash = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    checksum = sha256_hash.hexdigest()
+
+    # Déduplication (ING-04)
+    existing_doc = db.query(models.Document).filter(
+        models.Document.checksum_sha256 == checksum,
+        models.Document.status == models.DocStatus.ocr_processed
+    ).first()
+
+    if existing_doc:
+        logger.info("Document avec hash déjà traité", checksum=checksum, doc_id=existing_doc.id)
+        return {
+            "document_id": existing_doc.id,
+            "message": "Document déjà traité (déduplication active)",
+            "filename": file.filename,
+            "status": "ocr_processed"
+        }
+
     doc = models.Document(
         archive_name=safe_name,
         file_name=file.filename or safe_name,
         extension="zip",
         storage_path=file_path,
         status=models.DocStatus.raw_zip,
-        file_size_kb=file_size_kb
+        file_size_kb=file_size_kb,
+        checksum_sha256=checksum
     )
     db.add(doc)
     db.commit()
@@ -307,8 +453,52 @@ def list_appels_offres(
         "total": total,
         "page": page,
         "page_size": page_size,
+        "page_size": page_size,
         "items": [_marche_to_legacy(m) for m in items],
     }
+
+from fastapi.responses import StreamingResponse
+import io
+import pandas as pd
+
+@app.get("/api/v1/ged/appels-offres/export")
+def export_appels_offres(q: str = "", format: str = "csv", db: Session = Depends(get_db)):
+    repo = MarcheRepository(db)
+    if q.strip():
+        marches = repo.search_fts(q, limit=1000)
+    else:
+        marches = repo.list_all(skip=0, limit=1000)
+        
+    data = []
+    for m in marches:
+        data.append({
+            "numero_appel_offre": m.numero_appel_offre,
+            "titre_projet": m.titre_projet,
+            "organisme_acheteur": m.organisme_acheteur,
+            "ville_execution": m.ville_execution,
+            "categorie_prestation": m.categorie_prestation.value if m.categorie_prestation else None,
+            "budget_estimatif_mad": float(m.budget_estimatif_mad) if m.budget_estimatif_mad else None,
+            "date_parution": m.date_parution.isoformat() if m.date_parution else None,
+        })
+        
+    df = pd.DataFrame(data)
+    
+    if format == "csv":
+        stream = io.StringIO()
+        df.to_csv(stream, index=False)
+        response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
+        response.headers["Content-Disposition"] = "attachment; filename=export.csv"
+        return response
+    elif format == "xlsx":
+        stream = io.BytesIO()
+        with pd.ExcelWriter(stream, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False)
+        response = StreamingResponse(iter([stream.getvalue()]), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response.headers["Content-Disposition"] = "attachment; filename=export.xlsx"
+        return response
+    else:
+        raise HTTPException(status_code=400, detail="Format non supporté. Utilisez 'csv' ou 'xlsx'")
+
 
 
 @app.get("/api/v1/ged/appels-offres/{numero_ordre:path}")
@@ -434,6 +624,21 @@ def _normalize_categorie(value: Any) -> Optional[models.CategorieMarche]:
 # ===========================================================================
 # 📊 Espace Décisionnel & BI (/api/v1/analytics)
 # ===========================================================================
+@app.get("/api/v1/analytics/dashboard")
+def get_dashboard(db: Session = Depends(get_db)):
+    """Tableau de bord unifié."""
+    repo = MarcheRepository(db)
+    return {
+        "kpis": repo.kpis(),
+        "ocr_quality": {"taux_reussite_ocr_pct": repo.ocr_quality_pct()},
+        "trends": {
+            "months": [m["month"] for m in repo.by_month()],
+            "volumes": [m["count"] for m in repo.by_month()],
+        },
+        "trends_by_category": repo.by_category_month()
+    }
+
+
 @app.get("/api/v1/analytics/kpis")
 def get_kpis(db: Session = Depends(get_db)):
     """KPI globaux (4 compteurs)."""
@@ -489,6 +694,33 @@ def get_top_buyers(db: Session = Depends(get_db)):
         }
         for item in items
     ]
+
+from fastapi import Query
+from typing import List
+
+@app.get("/api/v1/compare")
+def compare_marches(ids: str = Query(..., description="IDs séparés par des virgules"), db: Session = Depends(get_db)):
+    """Comparaison de plusieurs appels d'offres."""
+    repo = MarcheRepository(db)
+    marches = []
+    id_list = [int(i) for i in ids.split(",") if i.isdigit()]
+    for m_id in id_list:
+        marche = repo.get(m_id)
+        if marche:
+            marches.append(_marche_to_legacy(marche))
+    return marches
+
+from sqlalchemy import func
+@app.get("/api/v1/geo/aggregates")
+def get_geo_aggregates(level: str = "ville", db: Session = Depends(get_db)):
+    """Statistiques géographiques."""
+    if level == "ville":
+        rows = db.query(
+            models.Marche.ville_execution,
+            func.count(models.Marche.id).label("count")
+        ).group_by(models.Marche.ville_execution).order_by(func.count(models.Marche.id).desc()).all()
+        return [{"ville": r[0] or "Inconnu", "count": r[1]} for r in rows]
+    return []
 
 
 # ===========================================================================
@@ -629,8 +861,21 @@ def get_db_schema(db: Session = Depends(get_db)):
 import asyncio
 
 @app.websocket("/api/v1/system/ws/console")
-async def websocket_console(websocket: WebSocket):
+async def websocket_console(websocket: WebSocket, token: str = None):
     """WebSocket pour exécuter les scripts du pipeline et streamer les logs."""
+    if not token:
+        await websocket.close(code=1008)
+        return
+    try:
+        from backend.auth.auth_handler import decode_token
+        payload = decode_token(token)
+        if payload.get("role") != "admin":
+            await websocket.close(code=1008)
+            return
+    except Exception:
+        await websocket.close(code=1008)
+        return
+
     await websocket.accept()
     try:
         while True:
@@ -666,7 +911,7 @@ async def websocket_console(websocket: WebSocket):
                 await websocket.send_text(f"Action inconnue: {action}")
                 
     except WebSocketDisconnect:
-        print("Client disconnected from console")
+        logger.info("Client disconnected from console")
     except Exception as e:
         await websocket.send_text(f"Erreur interne WebSocket: {str(e)}")
 

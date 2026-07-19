@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { Upload as UploadIcon, File } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Upload = () => {
   const [isDragging, setIsDragging] = useState(false);
@@ -14,6 +15,19 @@ const Upload = () => {
   };
 
   const handleUpload = async (selectedFile) => {
+    if (!selectedFile) return;
+    
+    // UI-16: Validation
+    if (!selectedFile.name.toLowerCase().endsWith('.zip') && !selectedFile.name.toLowerCase().endsWith('.rar') && !selectedFile.name.toLowerCase().endsWith('.7z')) {
+      toast.error("Format de fichier non supporté. Veuillez uploader un ZIP, RAR ou 7Z.");
+      return;
+    }
+    
+    if (selectedFile.size > 50 * 1024 * 1024) {
+      toast.error("Le fichier dépasse la taille maximale autorisée (50 MB).");
+      return;
+    }
+
     setFile(selectedFile);
     setProgress(10);
     
@@ -30,6 +44,7 @@ const Upload = () => {
       });
       
       const docId = uploadRes.data.document_id;
+      toast.success("Fichier uploadé avec succès. Traitement en cours...");
       
       // Real backend processing progress polling
       const interval = setInterval(async () => {
@@ -41,10 +56,11 @@ const Upload = () => {
             setProgress(60);
           } else if (st === 'OCR_PROCESSED' || st === 'NLP_PROCESSED') {
             setProgress(100);
+            toast.success("Traitement terminé !");
             clearInterval(interval);
           } else if (st === 'FAILED') {
             clearInterval(interval);
-            console.error("Processing failed");
+            toast.error("Échec du traitement du fichier.");
           }
         } catch (e) {
           console.error(e);
@@ -53,6 +69,7 @@ const Upload = () => {
 
     } catch (err) {
       console.error("Upload failed", err);
+      toast.error("Erreur lors de l'upload du fichier.");
       setProgress(0);
       setFile(null);
     }

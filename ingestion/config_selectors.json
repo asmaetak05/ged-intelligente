@@ -1,0 +1,11 @@
+{
+  "link_archives": "#LinkButton_Archives",
+  "date_parution_1": "input[name='date_parution1']",
+  "date_parution_2": "input[name='date_parution2']",
+  "btn_rechercher": "input[name='btn_rechercher']",
+  "results_table": "table[id^='TabC']",
+  "txt_nordre": "input[name='TXTNORDRE']",
+  "checkbox": "input[type='checkbox']",
+  "btn_details": "input[value='Détails']",
+  "links": "a"
+}
