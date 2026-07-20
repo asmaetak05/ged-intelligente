@@ -17,15 +17,15 @@
 
 ### Compteurs
 
-| Niveau | Total | Terminés | En cours | Restants | % |
-|---|---|---|---|---|---|
-| **Global** | 55 livrables | 7 ✅ | 0 | 48 ⏳ | 13 % |
-| **Phase 1 (S1)** | 10 | 0 | 0 | 10 ⏳ | 0 % |
-| **Phase 2 (S2)** | 10 | 0 | 0 | 10 ⏳ | 0 % |
-| **Phase 3 (S6)** | 5 | 0 | 0 | 5 ⏳ | 0 % |
-| **Phase 4 (V1)** | 18 | 0 | 0 | 18 ⏳ | 0 % |
-| **Phase 5 (V2)** | 9 | 0 | 0 | 9 ⏳ | 0 % |
-| **Déjà livrés (S1 antérieur)** | 7 | 7 ✅ | — | — | 100 % |
+| Niveau                         | Total        | Terminés | En cours | Restants | % |
+|--------------------------------|--------------|-------|---|---|---|
+| **Global**                     | 55 livrables | 7 ✅  | 0 | 48 ⏳ | 13 % |
+| **Phase 1 (S1)**               | 10           | 0     | 0 | 10 ⏳ | 0 % |
+| **Phase 2 (S2)**               | 10           | 0     | 0 | 10 ⏳ | 0 % |
+| **Phase 3 (S6)**               | 5            | 0     | 0 | 5 ⏳ | 0 % |
+| **Phase 4 (V1)**               | 18           | 0     | 0 | 18 ⏳ | 0 % |
+| **Phase 5 (V2)**               | 9            | 0     | 0 | 9 ⏳ | 0 % |
+| **Déjà livrés (S1 antérieur)** | 7            | 7 ✅  | — | — | 100 % |
 
 > **Légende** : `✅ FAIT` = ticket clôturé + fichier `tickets/done/<ID>.md` créé · `🟡 EN COURS` = démarré, pas terminé · `⏳ À FAIRE` = pas démarré
 

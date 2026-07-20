@@ -32,23 +32,23 @@
 
 ### 1.1 Stack technique confirmée
 
-| Couche | Technologie | Version | Statut |
-|---|---|---|---|
-| Framework | React | 19.2.7 | ✅ en place |
-| Bundler | Vite | 8.1.1 | ✅ en place |
-| Routing | react-router-dom | 7.18 | ✅ en place |
-| State | Zustand | 5.0 | ✅ `useUIStore` + `useAuthStore` (mais vide) |
-| HTTP | axios (client custom avec intercepteur) | 1.18 | ✅ en place |
-| UI | Tailwind CSS | 4.3 | ✅ en place |
-| Charts | Recharts | 3.9 | ✅ utilisé (Dashboard, pie/bar) |
-| Icons | lucide-react | 1.23 | ✅ utilisé partout |
-| Toasts | sonner | (non listé dans `package.json`) | ⚠️ **utilisé mais non installé** |
-| Tests unitaires | — | — | ❌ absent |
-| Tests E2E | — | — | ❌ absent |
-| i18n | — | — | ❌ absent |
-| Auth (interceptor) | — | — | ❌ `useAuthStore` n'est pas branché à axios |
-| PWA | — | — | ❌ manifest absent |
-| a11y | — | — | ⚠️ aucune `aria-label`, aucun focus-ring |
+| Couche            | Technologie | Version | Statut |
+|-------------------|---|---|---|
+| Framework         | React | 19.2.7 | ✅ en place |
+| Bundler           | Vite | 8.1.1 | ✅ en place |
+| Routing           | react-router-dom | 7.18 | ✅ en place |
+| State             | Zustand | 5.0 | ✅ `useUIStore` + `useAuthStore` (mais vide) |
+| HTTP              | axios (client custom avec intercepteur) | 1.18 | ✅ en place |
+| UI                | Tailwind CSS | 4.3 | ✅ en place |
+| Charts            | Recharts     | 3.9 | ✅ utilisé (Dashboard, pie/bar) |
+| Icons             | lucide-react | 1.23 | ✅ utilisé partout |
+| Toasts            | sonner       | (non listé dans `package.json`) | ⚠️ **utilisé mais non installé** |
+| Tests unitaires   | — | — | ❌ absent |
+| Tests E2E         | — | — | ❌ absent |
+| i18n              | — | — | ❌ absent |
+| Auth (interceptor)| — | — | ❌ `useAuthStore` n'est pas branché à axios |
+| PWA               | — | — | ❌ manifest absent |
+| a11y              | — | — | ⚠️ aucune `aria-label`, aucun focus-ring |
 
 ### 1.2 Routes actuelles (`App.jsx`)
 

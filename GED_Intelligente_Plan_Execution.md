@@ -454,4 +454,4 @@ DONNÉE → EXTRACTION → STOCKAGE → RECHERCHE → DASHBOARD → ML (expérim
 
 **La démonstration d'une chaîne complète et stable vaut mieux qu'une collection de modules incomplètes.**
 
-Bon courage pour votre stage ! 🚀
+Bon courage pour votre stage ! 
