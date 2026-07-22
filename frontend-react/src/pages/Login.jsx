@@ -23,24 +23,30 @@ const Login = () => {
 
   const onSubmit = async (data) => {
     setIsLoading(true);
-
     try {
-      // Simulation appel API
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      const mockUser = {
-        id: 1,
-        email: data.email,
-        name: data.email.split('@')[0],
-        role: data.email.includes('admin') ? 'admin' : 'user'
-      };
-      const mockToken = 'mock-jwt-token-12345';
-      
-      login(mockUser, mockToken);
-      toast.success(`Bienvenue, ${mockUser.name}`);
+      const formBody = new URLSearchParams();
+      formBody.append('username', data.email); // le backend utilise OAuth2PasswordRequestForm → champ "username"
+      formBody.append('password', data.password);
+  
+      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formBody,
+      });
+  
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Échec de connexion');
+      }
+  
+      const { access_token, role } = await response.json();
+      const user = { email: data.email, name: data.email.split('@')[0], role };
+  
+      login(user, access_token); // stocke le VRAI token JWT
+      toast.success(`Bienvenue, ${user.name}`);
       navigate('/dashboard');
     } catch (err) {
-      toast.error('Erreur lors de la connexion');
+      toast.error(err.message || 'Erreur lors de la connexion');
     } finally {
       setIsLoading(false);
     }

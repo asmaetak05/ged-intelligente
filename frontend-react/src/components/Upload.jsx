@@ -2,18 +2,18 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Upload as UploadIcon, File } from 'lucide-react';
 import { toast } from 'sonner';
-
+ 
 const Upload = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
-
+ 
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files.length > 0) handleUpload(e.dataTransfer.files[0]);
   };
-
+ 
   const handleUpload = async (selectedFile) => {
     if (!selectedFile) return;
     
@@ -27,13 +27,13 @@ const Upload = () => {
       toast.error("Le fichier dépasse la taille maximale autorisée (50 MB).");
       return;
     }
-
+ 
     setFile(selectedFile);
     setProgress(10);
     
     const formData = new FormData();
     formData.append("file", selectedFile);
-
+ 
     try {
       const uploadRes = await axios.post('http://127.0.0.1:8000/api/v1/ged/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -66,7 +66,7 @@ const Upload = () => {
           console.error(e);
         }
       }, 2000);
-
+ 
     } catch (err) {
       console.error("Upload failed", err);
       toast.error("Erreur lors de l'upload du fichier.");
@@ -74,38 +74,38 @@ const Upload = () => {
       setFile(null);
     }
   };
-
+ 
   return (
     <div className="p-8 h-full flex flex-col items-center justify-center">
       <div className="w-full max-w-lg">
         <div className="mb-8 text-center">
-          <h2 className="text-xl font-medium text-zinc-900 mb-1">Pipeline d'Ingestion</h2>
-          <p className="text-zinc-500 text-sm">Déposez un dossier compressé pour lancer le traitement OCR/NLP.</p>
+          <h2 className="text-xl font-medium text-zinc-900 dark:text-zinc-100 mb-1">Pipeline d'Ingestion</h2>
+          <p className="text-zinc-500 dark:text-zinc-400 text-sm">Déposez un dossier compressé pour lancer le traitement OCR/NLP.</p>
         </div>
-
+ 
         {!file ? (
           <div 
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
-            className={`border border-dashed rounded-md p-16 text-center transition-colors cursor-pointer ${isDragging ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-300 bg-white hover:border-zinc-400'}`}
+            className={`border border-dashed rounded-md p-16 text-center transition-colors cursor-pointer ${isDragging ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-50 dark:bg-zinc-800' : 'border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800/50 hover:border-zinc-400 dark:hover:border-zinc-500'}`}
           >
-            <UploadIcon size={32} className="mx-auto mb-4 text-zinc-400" strokeWidth={1.5} />
-            <p className="text-sm text-zinc-900 mb-1">Cliquez ou glissez un fichier</p>
-            <p className="text-xs text-zinc-500">ZIP, RAR, 7Z supportés (Max 50MB)</p>
+            <UploadIcon size={32} className="mx-auto mb-4 text-zinc-400 dark:text-zinc-500" strokeWidth={1.5} />
+            <p className="text-sm text-zinc-900 dark:text-zinc-100 mb-1">Cliquez ou glissez un fichier</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">ZIP, RAR, 7Z supportés (Max 50MB)</p>
             <input type="file" className="hidden" accept=".zip" onChange={(e) => handleUpload(e.target.files[0])} />
           </div>
         ) : (
-          <div className="bg-white p-6 rounded-md border border-zinc-200">
+          <div className="bg-white dark:bg-zinc-800 p-6 rounded-md border border-zinc-200 dark:border-zinc-700">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-10 h-10 bg-zinc-100 rounded flex items-center justify-center">
-                <File size={20} className="text-zinc-600" />
+              <div className="w-10 h-10 bg-zinc-100 dark:bg-zinc-700 rounded flex items-center justify-center">
+                <File size={20} className="text-zinc-600 dark:text-zinc-300" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-zinc-900">{file.name}</p>
-                <p className="text-xs text-zinc-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{file.name}</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
               </div>
-              <span className="text-xs font-medium text-zinc-500">{progress}%</span>
+              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{progress}%</span>
             </div>
             
             <div className="space-y-4">
@@ -116,19 +116,19 @@ const Upload = () => {
               ].map((step, i) => (
                 <div key={i}>
                   <div className="flex justify-between text-xs mb-1">
-                    <span className={progress >= step.threshold ? 'text-zinc-900' : 'text-zinc-400'}>{step.label}</span>
+                    <span className={progress >= step.threshold ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-500'}>{step.label}</span>
                   </div>
-                  <div className="w-full bg-zinc-100 rounded-full h-1 overflow-hidden">
-                    <div className="bg-zinc-900 h-full transition-all duration-300" 
+                  <div className="w-full bg-zinc-100 dark:bg-zinc-700 rounded-full h-1 overflow-hidden">
+                    <div className="bg-zinc-900 dark:bg-zinc-100 h-full transition-all duration-300" 
                          style={{ width: `${Math.max(0, Math.min(((progress - (i*30)) / 30) * 100, 100))}%` }}>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-
+ 
             {progress >= 100 && (
-              <button onClick={() => setFile(null)} className="w-full mt-6 bg-zinc-900 text-white text-sm font-medium py-2.5 rounded-md hover:bg-zinc-800 transition-colors">
+              <button onClick={() => setFile(null)} className="w-full mt-6 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-sm font-medium py-2.5 rounded-md hover:bg-zinc-800 dark:hover:bg-zinc-300 transition-colors">
                 Nouveau Traitement
               </button>
             )}
@@ -138,5 +138,6 @@ const Upload = () => {
     </div>
   );
 };
-
+ 
 export default Upload;
+ 

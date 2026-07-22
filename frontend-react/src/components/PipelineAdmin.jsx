@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Database, FileText, UploadCloud, Server } from 'lucide-react';
+import useAuthStore from '../store/useAuthStore';
+
 
 const PipelineAdmin = () => {
   const [logs, setLogs] = useState([]);
@@ -15,10 +17,24 @@ const PipelineAdmin = () => {
       .then(data => setSchema(data))
       .catch(err => console.error(err));
 
-    // Setup WebSocket
-    ws.current = new WebSocket('ws://localhost:8000/api/v1/system/ws/console');
+    // Setup WebSocket — avec le token JWT dans l'URL
+    const token = useAuthStore.getState().token;
+    if (!token) {
+      setLogs(prev => [...prev, "Erreur : vous devez être connecté (rôle admin) pour utiliser la console."]);
+      return;
+    }
+
+    ws.current = new WebSocket(`ws://localhost:8000/api/v1/system/ws/console?token=${token}`);
     ws.current.onmessage = (event) => {
       setLogs(prev => [...prev, event.data]);
+    };
+    ws.current.onerror = () => {
+      setLogs(prev => [...prev, "Erreur de connexion WebSocket (vérifiez que vous êtes bien admin)."]);
+    };
+    ws.current.onclose = (event) => {
+      if (event.code === 1008) {
+        setLogs(prev => [...prev, "Connexion refusée : token invalide ou rôle insuffisant (admin requis)."]);
+      }
     };
 
     return () => {

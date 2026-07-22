@@ -35,7 +35,7 @@ def log_audit(db: Session, action: str, user_id: int = None, resource_type: str 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == form_data.username).first()
+    user = db.query(User).filter((User.username == form_data.username) | (User.email == form_data.username)).first()    
     ip = request.client.host if request.client else None
     
     if user:
