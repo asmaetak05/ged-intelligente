@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Database, FileText, UploadCloud, Server } from 'lucide-react';
+import useAuthStore from '../store/useAuthStore';
 
 const PipelineAdmin = () => {
   const [logs, setLogs] = useState([]);
@@ -7,6 +8,8 @@ const PipelineAdmin = () => {
   const [dates, setDates] = useState({ start: '01/01/2025', end: '31/12/2025' });
   const ws = useRef(null);
   const consoleRef = useRef(null);
+
+  const { token } = useAuthStore();
 
   useEffect(() => {
     // Fetch schema
@@ -16,15 +19,25 @@ const PipelineAdmin = () => {
       .catch(err => console.error(err));
 
     // Setup WebSocket
-    ws.current = new WebSocket('ws://localhost:8000/api/v1/system/ws/console');
+    const wsUrl = `ws://localhost:8000/api/v1/system/ws/console${token ? '?token=' + token : ''}`;
+    ws.current = new WebSocket(wsUrl);
+    
+    ws.current.onopen = () => {
+      setLogs(prev => [...prev, "> Console connectée."]);
+    };
+    
     ws.current.onmessage = (event) => {
       setLogs(prev => [...prev, event.data]);
+    };
+
+    ws.current.onclose = () => {
+      setLogs(prev => [...prev, "> Connexion console fermée."]);
     };
 
     return () => {
       if (ws.current) ws.current.close();
     };
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (consoleRef.current) {

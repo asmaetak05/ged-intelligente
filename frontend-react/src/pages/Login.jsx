@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 const loginSchema = z.object({
-  email: z.string().min(1, 'L\'email est requis').email('Format d\'email invalide'),
+  username: z.string().min(1, 'L\'identifiant est requis'),
   password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
 });
 
@@ -25,22 +25,36 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // Simulation appel API
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const formData = new URLSearchParams();
+      formData.append('username', data.username);
+      formData.append('password', data.password);
+
+      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Identifiants incorrects');
+      }
+
+      const resData = await response.json();
+      const realToken = resData.access_token;
       
-      const mockUser = {
-        id: 1,
-        email: data.email,
-        name: data.email.split('@')[0],
-        role: data.email.includes('admin') ? 'admin' : 'user'
+      const realUser = {
+        email: data.username,
+        name: data.username,
+        role: resData.role
       };
-      const mockToken = 'mock-jwt-token-12345';
       
-      login(mockUser, mockToken);
-      toast.success(`Bienvenue, ${mockUser.name}`);
+      login(realUser, realToken);
+      toast.success('Connexion réussie');
       navigate('/dashboard');
     } catch (err) {
-      toast.error('Erreur lors de la connexion');
+      toast.error('Erreur lors de la connexion : ' + err.message);
     } finally {
       setIsLoading(false);
     }
@@ -57,19 +71,19 @@ const Login = () => {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">Email</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">Identifiant</label>
               <div className="relative mt-1">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                   <Mail className="w-5 h-5 text-gray-400" />
                 </div>
                 <input
-                  type="email"
-                  {...register('email')}
-                  className={`block w-full py-2 pl-10 pr-3 border ${errors.email ? 'border-red-500' : 'border-gray-300 dark:border-zinc-600'} rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100 sm:text-sm`}
-                  placeholder="admin@example.com"
+                  type="text"
+                  {...register('username')}
+                  className={`block w-full py-2 pl-10 pr-3 border ${errors.username ? 'border-red-500' : 'border-gray-300 dark:border-zinc-600'} rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100 sm:text-sm`}
+                  placeholder="admin"
                 />
               </div>
-              {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>}
+              {errors.username && <p className="mt-1 text-xs text-red-500">{errors.username.message}</p>}
             </div>
 
             <div>

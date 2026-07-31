@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kit Design UI/UX - Ministère de l'Équipement et de l'Eau</title>
+    <!-- Google Fonts & FontAwesome CDN -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Amiri:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            /* Palette officielle & Inspirée des images */
+            --primary-dark: #0F2C3A;       /* Bleu Nuit / Vert Sombre Professionnel */
+            --primary-accent: #00A86B;     /* Vert Eau / Émeraude dynamique */
+            --accent-lime: #85E05D;        /* Lime / Green Highlight (Inspiré Image 2) */
+            --accent-gold: #C5A059;        /* Or Royaume du Maroc */
+            --secondary-dark: #1A3C40;     /* Slate Dark */
+            --bg-light: #F4F7F6;           /* Gris Clair Off-white */
+            --bg-card: #FFFFFF;
+            --text-main: #1E293B;
+            --text-muted: #64748B;
+            --border-color: #E2E8F0;
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.04);
+            --shadow-md: 0 8px 16px rgba(15, 44, 58, 0.08);
+            --shadow-lg: 0 16px 32px rgba(15, 44, 58, 0.12);
+            --radius-sm: 6px;
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            --radius-pill: 999px;
+            --font-main: 'Plus Jakarta Sans', sans-serif;
+            --font-arabic: 'Amiri', serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-light);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding-bottom: 60px;
+        }
+
+        /* Container Layout for Kit */
+        .kit-wrapper {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .kit-header {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, #081B26 100%);
+            color: #fff;
+            padding: 30px;
+            border-radius: var(--radius-md);
+            margin-bottom: 30px;
+            box-shadow: var(--shadow-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid var(--accent-gold);
+        }
+
+        .kit-header .brand {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .official-logo-box {
+            background: #fff;
+            padding: 10px 15px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .official-logo-box img {
+            height: 45px;
+        }
+
+        .kit-header h1 {
+            font-size: 24px;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+
+        .kit-header p {
+            color: #94A3B8;
+            font-size: 14px;
+        }
+
+        /* Navigation Tabs */
+        .kit-nav {
+            display: flex;
+            gap: 12px;
+            background: #fff;
+            padding: 10px;
+            border-radius: var(--radius-md);
+            margin-bottom: 30px;
+            box-shadow: var(--shadow-sm);
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            border: none;
+            background: transparent;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .tab-btn.active, .tab-btn:hover {
+            background: var(--primary-dark);
+            color: #fff;
+        }
+
+        .tab-btn.active {
+            background: var(--primary-accent);
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin: 40px 0 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-left: 4px solid var(--primary-accent);
+            padding-left: 12px;
+        }
+
+        /* Tab Content Control */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* ==================== 1. TOKENS & ATOMS ==================== */
+        .grid-tokens {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card-token {
+            background: #fff;
+            border-radius: var(--radius-md);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+        }
+
+        .color-swatch-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .swatch {
+            height: 50px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            color: #fff;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        /* Buttons Style */
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: var(--radius-pill);
+            border: none;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary-accent);
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #008f5a;
+            box-shadow: 0 4px 12px rgba(0,168,107,0.3);
+        }
+
+        .btn-dark {
+            background: var(--primary-dark);
+            color: #fff;
+        }
+        .btn-dark:hover {
+            background: #081B26;
+        }
+
+        .btn-lime {
+            background: var(--accent-lime);
+            color: var(--primary-dark);
+            font-weight: 700;
+        }
+        .btn-lime:hover {
+            background: #73d04b;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary-dark);
+            color: var(--primary-dark);
+        }
+        .btn-outline:hover {
+            background: var(--primary-dark);
+            color: #fff;
+        }
+
+        .btn-icon-circle {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Inputs & Form Elements */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary-dark);
+            margin-bottom: 6px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+            background: #fff;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 0 3px rgba(0, 168, 107, 0.15);
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: var(--radius-pill);
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .badge-success { background: #E6F4EA; color: #137333; }
+        .badge-warning { background: #FEF7E0; color: #B06000; }
+        .badge-info { background: #E8F0FE; color: #1A73E8; }
+        .badge-danger { background: #FCE8E6; color: #C5221F; }
+
+        /* ==================== 2. LANDING PAGE COMPONENTS ==================== */
+        
+        /* Official Moroccan Ministry Header Banner */
+        .top-official-bar {
+            background: var(--primary-dark);
+            color: #fff;
+            padding: 8px 30px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--accent-gold);
+        }
+
+        .official-brand-flex {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        /* Hero Section (Inspired by Biztop & ISK layout) */
+        .hero-section-preview {
+            background: linear-gradient(135deg, #0A222E 0%, #0F384C 100%);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            color: #fff;
+            position: relative;
+            padding: 60px 40px;
+            margin-bottom: 40px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .hero-badge {
+            background: rgba(133, 224, 93, 0.15);
+            color: var(--accent-lime);
+            padding: 6px 16px;
+            border-radius: var(--radius-pill);
+            font-size: 13px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(133, 224, 93, 0.3);
+        }
+
+        .hero-title {
+            font-size: 38px;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 20px;
+        }
+
+        .hero-title span {
+            color: var(--accent-lime);
+        }
+
+        .hero-desc {
+            font-size: 15px;
+            color: #CBD5E1;
+            margin-bottom: 30px;
+            max-width: 540px;
+        }
+
+        .hero-card-preview {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        /* Features Cards Row (Inspired by Image 1 & 2) */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .feature-card {
+            background: #fff;
+            border-radius: var(--radius-md);
+            padding: 30px;
+            box-shadow: var(--shadow-md);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            border-top: 4px solid transparent;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .feature-card.dark-theme {
+            background: var(--primary-dark);
+            color: #fff;
+        }
+
+        .feature-card.lime-theme {
+            background: var(--accent-lime);
+            color: var(--primary-dark);
+        }
+
+        .feature-icon-box {
+            width: 56px;
+            height: 56px;
+            border-radius: var(--radius-sm);
+            background: rgba(0, 168, 107, 0.1);
+            color: var(--primary-accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .feature-card.dark-theme .feature-icon-box {
+            background: rgba(255,255,255,0.1);
+            color: var(--accent-lime);
+        }
+
+        .feature-card.lime-theme .feature-icon-box {
+            background: var(--primary-dark);
+            color: var(--accent-lime);
+        }
+
+        .feature-card h3 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .feature-card p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .feature-card.dark-theme p { color: #94A3B8; }
+        .feature-card.lime-theme p { color: #2C4A1E; }
+
+        .link-arrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--primary-accent);
+            text-decoration: none;
+        }
+
+        .feature-card.dark-theme .link-arrow { color: var(--accent-lime); }
+        .feature-card.lime-theme .link-arrow { color: var(--primary-dark); }
+
+        /* Contact Section Preview (Inspired by Image 1 Bottom Form) */
+        .contact-section-box {
+            background: var(--primary-dark);
+            border-radius: var(--radius-md);
+            padding: 40px;
+            color: #fff;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        /* ==================== 3. DASHBOARD COMPONENTS ==================== */
+        .dashboard-container {
+            background: #F1F5F9;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            min-height: 650px;
+        }
+
+        /* Dashboard Sidebar */
+        .dash-sidebar {
+            background: var(--primary-dark);
+            color: #fff;
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .dash-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 24px;
+        }
+
+        .dash-brand-title {
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .dash-menu {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .dash-menu-item a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            color: #94A3B8;
+            text-decoration: none;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .dash-menu-item.active a, .dash-menu-item a:hover {
+            background: rgba(0, 168, 107, 0.15);
+            color: var(--accent-lime);
+        }
+
+        /* Dashboard Header & Main Content */
+        .dash-main {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dash-topbar {
+            background: #fff;
+            padding: 16px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .dash-search-box {
+            position: relative;
+            width: 300px;
+        }
+
+        .dash-search-box i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .dash-search-box input {
+            padding-left: 36px;
+            background: #F8FAFC;
+        }
+
+        .dash-user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: var(--primary-accent);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .dash-body {
+            padding: 28px;
+            flex-grow: 1;
+        }
+
+        /* KPI Cards */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 28px;
+        }
+
+        .kpi-card {
+            background: #fff;
+            padding: 20px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .kpi-num {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--primary-dark);
+            margin: 6px 0;
+        }
+
+        .kpi-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        /* Data Table Section */
+        .table-card {
+            background: #fff;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .table-header-bar {
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .custom-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .custom-table th {
+            background: #F8FAFC;
+            padding: 12px 20px;
+            font-weight: 700;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .custom-table td {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        .custom-table tr:hover {
+            background: #F8FAFC;
+        }
+
+        /* Footer Branding */
+        .footer-official {
+            background: var(--primary-dark);
+            color: #8E9BAE;
+            padding: 30px;
+            border-radius: var(--radius-md);
+            margin-top: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .footer-official a {
+            color: var(--accent-lime);
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="kit-wrapper">
+
+    <!-- UI KIT HEADER -->
+    <header class="kit-header">
+        <div class="brand">
+            <!-- Simulated SVG Logos for Kingdom of Morocco & Ministry -->
+            <div class="official-logo-box">
+                <svg width="36" height="36" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="45" stroke="#C5A059" stroke-width="6" fill="#0F2C3A"/>
+                    <path d="M50 15 L58 38 L82 38 L63 52 L70 75 L50 60 L30 75 L37 52 L18 38 L42 38 Z" fill="#85E05D"/>
+                </svg>
+                <div>
+                    <div style="font-size: 10px; font-weight: 800; color: #1E293B; text-transform: uppercase;">ROYAUME DU MAROC</div>
+                    <div style="font-size: 9px; color: #00A86B; font-weight: 700;">Ministère de l'Équipement et de l'Eau</div>
+                </div>
+            </div>
+            <div>
+                <h1>Kit Design UI / UX System</h1>
+                <p>Composants Standardisés - Landing Page & Dashboard Ministériel</p>
+            </div>
+        </div>
+        <div>
+            <span class="badge badge-success" style="font-size: 13px; padding: 8px 16px;">
+                <i class="fa-solid fa-check-circle"></i> Version 1.0 (2026)
+            </span>
+        </div>
+    </header>
+
+    <!-- NAVIGATION TABS -->
+    <nav class="kit-nav">
+        <button class="tab-btn active" onclick="switchTab('tab-landing')">
+            <i class="fa-solid fa-laptop"></i> Composants Landing Page
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-dashboard')">
+            <i class="fa-solid fa-chart-line"></i> Composants Dashboard
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-atoms')">
+            <i class="fa-solid fa-palette"></i> Design Tokens & Atomes
+        </button>
+    </nav>
+
+    <!-- ================= TAB 1: LANDING PAGE COMPONENTS ================= -->
+    <div id="tab-landing" class="tab-content active">
+
+        <!-- 1. En-tête Officiel / Navbar -->
+        <div class="section-title">
+            <i class="fa-solid fa-window-maximize"></i> 1. En-tête & Barre Nav Officielle (Header)
+        </div>
+        
+        <div style="border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-color); margin-bottom: 30px;">
+            <div class="top-official-bar">
+                <div class="official-brand-flex">
+                    <span style="font-family: var(--font-arabic); font-size: 14px;">المملكة المغربية - وزارة التجهيز والماء</span>
+                    <span style="opacity: 0.4;">|</span>
+                    <span>Royaume du Maroc - Ministère de l'Équipement et de l'Eau</span>
+                </div>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <a href="#" style="color: #fff; text-decoration: none;"><i class="fa-solid fa-phone"></i> Contact Direct</a>
+                    <span>|</span>
+                    <a href="#" style="color: var(--accent-lime); text-decoration: none; font-weight: 700;">FR / AR</a>
+                </div>
+            </div>
+
+            <nav style="background: #fff; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow-sm);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <svg width="40" height="40" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="45" fill="#0F2C3A"/>
+                        <path d="M50 20 L55 35 L70 35 L58 45 L62 60 L50 50 L38 60 L42 45 L30 35 L45 35 Z" fill="#C5A059"/>
+                    </svg>
+                    <div>
+                        <div style="font-weight: 800; color: var(--primary-dark); font-size: 16px;">PORTAIL NATIONAL</div>
+                        <div style="font-size: 11px; color: var(--primary-accent); font-weight: 600;">GIRH & Infrastructures</div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 24px; align-items: center; font-weight: 600; font-size: 14px;">
+                    <a href="#" style="color: var(--primary-accent); text-decoration: none;">Accueil</a>
+                    <a href="#" style="color: var(--text-main); text-decoration: none;">Grands Barrages</a>
+                    <a href="#" style="color: var(--text-main); text-decoration: none;">Routes & Logistique</a>
+                    <a href="#" style="color: var(--text-main); text-decoration: none;">Appels d'Offres</a>
+                    <a href="#" style="color: var(--text-main); text-decoration: none;">E-Services</a>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <a href="#" class="btn btn-dark" style="font-size: 13px; padding: 10px 20px;">Espace Citoyen</a>
+                    <a href="#" class="btn btn-lime" style="font-size: 13px; padding: 10px 20px;"><i class="fa-solid fa-lock"></i> Connexion</a>
+                </div>
+            </nav>
+        </div>
+
+        <!-- 2. Hero Section (Inspirée de l'image Biztop & ISK) -->
+        <div class="section-title">
+            <i class="fa-solid fa-mountain-sun"></i> 2. Section Hero Majeure (Hero Section)
+        </div>
+
+        <div class="hero-section-preview">
+            <div class="hero-grid">
+                <div>
+                    <div class="hero-badge">
+                        <i class="fa-solid fa-droplet"></i> Stratégie Nationale de l'Eau 2020-2050
+                    </div>
+                    <h1 class="hero-title">Infrastructures Durables & <span>Gestion Intégrée</span> de l'Eau</h1>
+                    <p class="hero-desc">
+                        Découvrez les projets structurants du Royaume du Maroc pour la sécurité hydrique, le développement autoroutier et la modernisation des ports.
+                    </p>
+                    <div class="btn-group">
+                        <a href="#" class="btn btn-lime"><i class="fa-solid fa-chart-pie"></i> Suivi des Projets</a>
+                        <a href="#" class="btn btn-outline" style="border-color: #fff; color: #fff;">
+                            <i class="fa-solid fa-play-circle"></i> Découvrir la Vision
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Callout Box (Inspiré de l'image 2) -->
+                <div class="hero-card-preview">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                        <div style="background: var(--accent-lime); color: var(--primary-dark); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800;">
+                            <i class="fa-solid fa-water"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 15px;">Taux de Remplissage Global</div>
+                            <div style="font-size: 12px; color: #94A3B8;">Mise à jour en temps réel</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 36px; font-weight: 800; color: var(--accent-lime); margin-bottom: 8px;">
+                        42.8 % <span style="font-size: 14px; color: #CBD5E1; font-weight: 400;">(+2.4% cette semaine)</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 15px;">
+                        <div style="background: var(--accent-lime); width: 42.8%; height: 100%;"></div>
+                    </div>
+                    <p style="font-size: 12px; color: #94A3B8;">
+                        * Données consolidées provenant des 140 grands barrages du Royaume.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Cartes de Services / Valeurs (Inspirées directement de l'image 1 et 2) -->
+        <div class="section-title">
+            <i class="fa-solid fa-cubes"></i> 3. Bloc de Services & Filières (Feature Cards Grid)
+        </div>
+
+        <div class="features-grid">
+            <!-- Carte 1: Standard White -->
+            <div class="feature-card">
+                <div class="feature-icon-box">
+                    <i class="fa-solid fa-faucet-drip"></i>
+                </div>
+                <h3>Ressources en Eau</h3>
+                <p>Gestion des bassins hydrauliques, dessalement d'eau de mer et réutilisation des eaux usées traitées.</p>
+                <a href="#" class="link-arrow">Consulter les données <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+
+            <!-- Carte 2: Vibrant Lime (Inspirée image 2 center card) -->
+            <div class="feature-card lime-theme">
+                <div class="feature-icon-box">
+                    <i class="fa-solid fa-road"></i>
+                </div>
+                <h3>Infrastructures Routières</h3>
+                <p>Développement du réseau d'autoroutes, voies express et désenclavement du milieu rural.</p>
+                <a href="#" class="link-arrow">Voir la cartographie <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+
+            <!-- Carte 3: Dark Navy (Inspirée image 1 & 2 dark card) -->
+            <div class="feature-card dark-theme">
+                <div class="feature-icon-box">
+                    <i class="fa-solid fa-anchor"></i>
+                </div>
+                <h3>Domaine Maritime & Ports</h3>
+                <p>Modernisation des complexes portuaires, Tanger Med, Nador West Med et sécurité maritime.</p>
+                <a href="#" class="link-arrow">E-Services Maritimes <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+        </div>
+
+        <!-- 4. Formulaire de Contact & Réclamation (Inspiré du bas de l'image 1) -->
+        <div class="section-title">
+            <i class="fa-solid fa-envelope"></i> 4. Section Contact & Support Citoyen (Contact Form Block)
+        </div>
+
+        <div class="contact-section-box">
+            <div>
+                <span class="badge badge-warning" style="margin-bottom: 15px;">E-Services Citoyen</span>
+                <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 15px;">Contactez les Services du Ministère</h2>
+                <p style="color: #94A3B8; font-size: 14px; margin-bottom: 30px;">
+                    Une question concernant un appel d'offres, une autorisation d'eau ou le signalement d'un incident sur le réseau routier ? Nos équipes restent à votre disposition.
+                </p>
+
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; color: var(--accent-lime);">
+                            <i class="fa-solid fa-phone"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: #94A3B8;">Centre d'Appel National</div>
+                            <div style="font-size: 18px; font-weight: 700; color: #fff;">+212 (0) 537 71 10 00</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; color: var(--accent-lime);">
+                            <i class="fa-solid fa-location-dot"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: #94A3B8;">Siège Central</div>
+                            <div style="font-size: 14px; font-weight: 600; color: #fff;">Quartier Administratif, Cité Administrative, Agdal, Rabat</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <form onsubmit="return false;" style="background: rgba(255,255,255,0.05); padding: 30px; border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.1);">
+                <div class="form-group">
+                    <label class="form-label" style="color: #CBD5E1;">Nom Complet *</label>
+                    <input type="text" class="form-control" placeholder="M. / Mme. Nom" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: #fff;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="color: #CBD5E1;">Adresse Email *</label>
+                    <input type="email" class="form-control" placeholder="exemple@domain.ma" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: #fff;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="color: #CBD5E1;">Sujet / Motif</label>
+                    <select class="form-control" style="background: #0F2C3A; border-color: rgba(255,255,255,0.2); color: #fff;">
+                        <option>Demande d'information de barrage</option>
+                        <option>Autorisation Domaine Public Hydraulique</option>
+                        <option>Signalement Qualité de Route</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="color: #CBD5E1;">Message</label>
+                    <textarea class="form-control" rows="3" placeholder="Votre message..." style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: #fff;"></textarea>
+                </div>
+                <button class="btn btn-lime" style="width: 100%;">Envoyer la demande <i class="fa-solid fa-paper-plane"></i></button>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- ================= TAB 2: DASHBOARD COMPONENTS ================= -->
+    <div id="tab-dashboard" class="tab-content">
+        
+        <div class="section-title">
+            <i class="fa-solid fa-gauge"></i> Application Dashboard - Suivi Général de la Gestion de l'Eau & Equipements
+        </div>
+
+        <div class="dashboard-container">
+            <!-- Sidebar -->
+            <aside class="dash-sidebar">
+                <div>
+                    <div class="dash-brand">
+                        <svg width="32" height="32" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="#85E05D"/>
+                            <path d="M50 20 L55 35 L70 35 L58 45 L62 60 L50 50 L38 60 L42 45 L30 35 L45 35 Z" fill="#0F2C3A"/>
+                        </svg>
+                        <div class="dash-brand-title">
+                            MINISTÈRE EAU & ÉQUIPEMENT
+                            <div style="font-size: 10px; color: var(--accent-lime); font-weight: 500;">Console SIG-Maroc</div>
+                        </div>
+                    </div>
+
+                    <ul class="dash-menu">
+                        <li class="dash-menu-item active">
+                            <a href="#"><i class="fa-solid fa-chart-pie"></i> Vue Synthétique</a>
+                        </li>
+                        <li class="dash-menu-item">
+                            <a href="#"><i class="fa-solid fa-faucet"></i> Barrages & Retenues</a>
+                        </li>
+                        <li class="dash-menu-item">
+                            <a href="#"><i class="fa-solid fa-industry"></i> Stations Dessalement</a>
+                        </li>
+                        <li class="dash-menu-item">
+                            <a href="#"><i class="fa-solid fa-road"></i> Réseau Routier</a>
+                        </li>
+                        <li class="dash-menu-item">
+                            <a href="#"><i class="fa-solid fa-file-contract"></i> Marches & Offres</a>
+                        </li>
+                        <li class="dash-menu-item">
+                            <a href="#"><i class="fa-solid fa-users-gear"></i> Directeurs Régionaux</a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px;">
+                    <a href="#" style="color: #94A3B8; font-size: 12px; text-decoration: none; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-gear"></i> Paramètres Système
+                    </a>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="dash-main">
+                <!-- Top Navbar -->
+                <header class="dash-topbar">
+                    <div class="dash-search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" class="form-control" placeholder="Rechercher un barrage, province, projet...">
+                    </div>
+
+                    <div class="dash-user-profile">
+                        <div style="position: relative; margin-right: 15px;">
+                            <i class="fa-regular fa-bell" style="font-size: 18px; color: var(--text-muted);"></i>
+                            <span style="position: absolute; top: -4px; right: -4px; background: var(--primary-accent); color: #fff; width: 8px; height: 8px; border-radius: 50%;"></span>
+                        </div>
+                        <div class="avatar">AB</div>
+                        <div>
+                            <div style="font-size: 13px; font-weight: 700;">A. Benjelloun</div>
+                            <div style="font-size: 11px; color: var(--text-muted);">Ingénieur en Chef - DGH</div>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Dashboard Body -->
+                <div class="dash-body">
+                    
+                    <!-- KPI Cards Row -->
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <div>
+                                <div class="kpi-label">Barrages Opérationnels</div>
+                                <div class="kpi-num">152</div>
+                                <span class="badge badge-success">+3 Nouveaux (2026)</span>
+                            </div>
+                            <div class="kpi-icon" style="background: #E6F4EA; color: #137333;">
+                                <i class="fa-solid fa-water-ladder"></i>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card">
+                            <div>
+                                <div class="kpi-label">Volume Réserve Globale</div>
+                                <div class="kpi-num">6.85 Bm³</div>
+                                <span class="badge badge-info">Capacité 16 Bm³</span>
+                            </div>
+                            <div class="kpi-icon" style="background: #E8F0FE; color: #1A73E8;">
+                                <i class="fa-solid fa-chart-line"></i>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card">
+                            <div>
+                                <div class="kpi-label">Projets en Chantier</div>
+                                <div class="kpi-num">24</div>
+                                <span class="badge badge-warning">En cours d'exécution</span>
+                            </div>
+                            <div class="kpi-icon" style="background: #FEF7E0; color: #B06000;">
+                                <i class="fa-solid fa-truck-monster"></i>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card">
+                            <div>
+                                <div class="kpi-label">Budget Investissement</div>
+                                <div class="kpi-num">18.4 DH</div>
+                                <span class="badge badge-success">Milliards MAD</span>
+                            </div>
+                            <div class="kpi-icon" style="background: #E6F4EA; color: #00A86B;">
+                                <i class="fa-solid fa-vault"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Table Component -->
+                    <div class="table-card">
+                        <div class="table-header-bar">
+                            <div style="font-weight: 700; color: var(--primary-dark); font-size: 15px;">
+                                État des Grands Barrages Stratégiques du Royaume
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn btn-outline" style="font-size: 12px; padding: 6px 14px; border-radius: var(--radius-sm);">
+                                    <i class="fa-solid fa-filter"></i> Filtrer
+                                </button>
+                                <button class="btn btn-primary" style="font-size: 12px; padding: 6px 14px; border-radius: var(--radius-sm);">
+                                    <i class="fa-solid fa-file-excel"></i> Exporter
+                                </button>
+                            </div>
+                        </div>
+
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>Nom du Barrage</th>
+                                    <th>Bassin Hydraulique</th>
+                                    <th>Capacité (Mm³)</th>
+                                    <th>Volume Actuel</th>
+                                    <th>Taux %</th>
+                                    <th>Statut</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Al Wahda</strong></td>
+                                    <td>Sebou</td>
+                                    <td>3 522.0</td>
+                                    <td>1 890.4</td>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span>53.6%</span>
+                                            <div style="flex-grow: 1; background: #E2E8F0; height: 6px; border-radius: 3px; width: 60px;">
+                                                <div style="background: #00A86B; width: 53.6%; height: 100%; border-radius: 3px;"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="badge badge-success">Optimal</span></td>
+                                    <td><a href="#" style="color: var(--primary-accent); text-decoration: none; font-weight: 700;"><i class="fa-solid fa-eye"></i> Détails</a></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Al Massira</strong></td>
+                                    <td>Oum Er-Rbia</td>
+                                    <td>2 657.0</td>
+                                    <td>210.2</td>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span>7.9%</span>
+                                            <div style="flex-grow: 1; background: #E2E8F0; height: 6px; border-radius: 3px; width: 60px;">
+                                                <div style="background: #C5221F; width: 7.9%; height: 100%; border-radius: 3px;"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="badge badge-danger">Alerte Basse</span></td>
+                                    <td><a href="#" style="color: var(--primary-accent); text-decoration: none; font-weight: 700;"><i class="fa-solid fa-eye"></i> Détails</a></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Bin El Ouidane</strong></td>
+                                    <td>Oum Er-Rbia</td>
+                                    <td>1 215.5</td>
+                                    <td>185.0</td>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span>15.2%</span>
+                                            <div style="flex-grow: 1; background: #E2E8F0; height: 6px; border-radius: 3px; width: 60px;">
+                                                <div style="background: #B06000; width: 15.2%; height: 100%; border-radius: 3px;"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="badge badge-warning">Vigilance</span></td>
+                                    <td><a href="#" style="color: var(--primary-accent); text-decoration: none; font-weight: 700;"><i class="fa-solid fa-eye"></i> Détails</a></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Idriss Premier</strong></td>
+                                    <td>Sebou</td>
+                                    <td>1 129.6</td>
+                                    <td>320.1</td>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span>28.3%</span>
+                                            <div style="flex-grow: 1; background: #E2E8F0; height: 6px; border-radius: 3px; width: 60px;">
+                                                <div style="background: #00A86B; width: 28.3%; height: 100%; border-radius: 3px;"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="badge badge-success">Stable</span></td>
+                                    <td><a href="#" style="color: var(--primary-accent); text-decoration: none; font-weight: 700;"><i class="fa-solid fa-eye"></i> Détails</a></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+
+    </div>
+
+    <!-- ================= TAB 3: ATOMS & STYLEGUIDE ================= -->
+    <div id="tab-atoms" class="tab-content">
+        <div class="section-title">
+            <i class="fa-solid fa-swatchbook"></i> Charte Graphique & Palette de Couleurs
+        </div>
+
+        <div class="grid-tokens">
+            <div class="card-token">
+                <h4 style="margin-bottom: 12px; font-size: 14px;">Couleurs Principales</h4>
+                <div class="color-swatch-group">
+                    <div class="swatch" style="background: #0F2C3A;"><span>Primary Dark</span> <span>#0F2C3A</span></div>
+                    <div class="swatch" style="background: #00A86B;"><span>Primary Accent</span> <span>#00A86B</span></div>
+                    <div class="swatch" style="background: #85E05D; color: #0F2C3A;"><span>Accent Lime</span> <span>#85E05D</span></div>
+                    <div class="swatch" style="background: #C5A059;"><span>Or Royaume</span> <span>#C5A059</span></div>
+                </div>
+            </div>
+
+            <div class="card-token">
+                <h4 style="margin-bottom: 12px; font-size: 14px;">Boutons & États</h4>
+                <div class="btn-group" style="flex-direction: column; align-items: flex-start;">
+                    <button class="btn btn-primary">Bouton Principal</button>
+                    <button class="btn btn-dark">Bouton Sombre</button>
+                    <button class="btn btn-lime">Bouton Accent Lime</button>
+                    <button class="btn btn-outline">Bouton Outline</button>
+                </div>
+            </div>
+
+            <div class="card-token">
+                <h4 style="margin-bottom: 12px; font-size: 14px;">Badges de Statut</h4>
+                <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;">
+                    <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Actif / Conforme</span>
+                    <span class="badge badge-warning"><i class="fa-solid fa-triangle-exclamation"></i> En Attention</span>
+                    <span class="badge badge-danger"><i class="fa-solid fa-circle-xmark"></i> Alerte Critique</span>
+                    <span class="badge badge-info"><i class="fa-solid fa-info-circle"></i> Information</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer-official">
+        <div>
+            <strong>Ministère de l'Équipement et de l'Eau</strong> — Kit UI/UX Design System officiel.
+            <br><span style="font-size: 11px;">Royaume du Maroc | Designed based on modern web design standards</span>
+        </div>
+        <div>
+            <a href="#">Documentation Design System</a>
+        </div>
+    </footer>
+
+</div>
+
+<script>
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        
+        document.getElementById(tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+</script>
+
+</body>
+</html>
