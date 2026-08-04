@@ -36,19 +36,45 @@ def extract(text: str) -> dict:
             }
             
     # Objet
-    objet_match = re.search(r"objet\s*(?:de\s*l['’]?appel\s*d['’]?offres)?\s*[\:\-]\s*(.*?)(?=\. |Caution|Estimation|Date)", text_clean, re.IGNORECASE)
+    objet_match = re.search(r"objet\s*(?:de\s*l['’]?appel\s*d['’]?offres)?\s*[\:\-]\s*(.*?)(?=\. |Caution|Estimation|Date|L['’]estimation|Le dossier)", text_clean, re.IGNORECASE)
+    if not objet_match:
+        objet_match = re.search(r"pour\s+(la\s+fourniture\s+.*?|l['’]ex[ée]cution\s+.*?|les\s+travaux\s+.*?|la\s+r[ée]alisation\s+.*?|l['’]achat\s+.*?)(?=\. |\(en lot|\(lot|Le dossier|L['’]estimation)", text_clean, re.IGNORECASE)
     if objet_match:
         add_field("objet", objet_match.group(1).strip(), "regex", 0.9, objet_match.group(0))
 
     # Estimation
-    est_match = re.search(r"estimation[^0-9]*?([\d\s\.,]+)\s*(?:dhs|mad|dirhams?)", text_clean, re.IGNORECASE)
+    est_match = re.search(
+        r"(?:estimation|budget\s+estimatif|co[uû]t\s+estimatif|montant\s+estimatif|co[uû]ts?\s+des\s+prestations).*?[\(\[\s]*([\d\s\.,]{3,})\s*[\)\]\s]*(?:dhs?|mad|dirhams?|dh\b)",
+        text_clean,
+        re.IGNORECASE
+    )
+    if not est_match:
+        est_match = re.search(
+            r"estimation.*?(?:est|somme|\:)?\s*[\(\[\s]*([\d\s\.,]+)\s*(?:dhs?|mad|dirhams?|dh\b)",
+            text_clean,
+            re.IGNORECASE
+        )
     if est_match:
-        add_field("estimation_mad", normalize_money(est_match.group(1)), "regex", 0.9, est_match.group(0))
+        val_est = normalize_money(est_match.group(1))
+        if val_est:
+            add_field("estimation_mad", val_est, "regex", 0.9, est_match.group(0))
 
     # Caution
-    caution_match = re.search(r"caution\s+provisoire[^0-9]*?([\d\s\.,]+)\s*(?:dhs|mad|dirhams?)", text_clean, re.IGNORECASE)
+    caution_match = re.search(
+        r"(?:caution(?:nement)?\s+provisoire|caution\s+bancaire|cautionnement).*?[\(\[\s]*([\d\s\.,]{3,})\s*[\)\]\s]*(?:dhs?|mad|dirhams?|dh\b)",
+        text_clean,
+        re.IGNORECASE
+    )
+    if not caution_match:
+        caution_match = re.search(
+            r"caution(?:nement)?\s+provisoire.*?(?:est|somme|\:)?\s*[\(\[\s]*([\d\s\.,]+)\s*(?:dhs?|mad|dirhams?|dh\b)",
+            text_clean,
+            re.IGNORECASE
+        )
     if caution_match:
-        add_field("caution_mad", normalize_money(caution_match.group(1)), "regex", 0.9, caution_match.group(0))
+        val_caut = normalize_money(caution_match.group(1))
+        if val_caut:
+            add_field("caution_mad", val_caut, "regex", 0.9, caution_match.group(0))
         
     # Delai
     delai_match = re.search(r"d[ée]lai d['’]ex[ée]cution[^0-9]*?([\d]+)\s*(mois|jours|semaines)", text_clean, re.IGNORECASE)
@@ -70,8 +96,10 @@ def extract(text: str) -> dict:
     if date_limite_match:
         add_field("date_limite", normalize_date(date_limite_match.group(1)), "regex", 0.8, date_limite_match.group(0))
 
-    # Reference
-    ref_match = re.search(r"R[éé]f[éerence]*\s*:\s*(\S+)", text_clean, re.IGNORECASE)
+    # Reference / Numero AO
+    ref_match = re.search(r"(?:R[éé]f[éerence]*|n[°o\.\s]|num[ée]ro)\s*[:\-]?\s*([0-9]+/[A-Z0-9\-_/]+)", text_clean, re.IGNORECASE)
+    if not ref_match:
+        ref_match = re.search(r"R[éé]f[éerence]*\s*:\s*(\S+)", text_clean, re.IGNORECASE)
     if ref_match:
         add_field("reference", ref_match.group(1).strip(), "regex", 0.9, ref_match.group(0))
         
@@ -90,19 +118,34 @@ def extract(text: str) -> dict:
     mo_score = 0.0
     mo_snippet = ""
     
-    mo_match = re.search(
-        r"(?:maitre\s+d['’]?ouvrage|acheteur\s+public|organisme\s+acheteur)\s*[:\-]?\s*([^.]+?)(?=\. |Objet|Le|Caution|Estimation|Date|Avis|Appel|\bdu\b|\bau\b)",
+    # 1. Regex ciblée sur les institutions publiques marocaines
+    inst_match = re.search(
+        r"(?:Haut-?\s*Commissariat\s+au\s+Plan|Direction\s+(?:R[ée]gionale|Provinciale|G[ée]n[ée]rale|des\s+Ressources\s+Humaines|de\s+l['’]?[A-Z][a-zA-Z\s]+)|Agence\s+Nationale\s+[A-Za-z\s]+|Minist[èe]re\s+de\s+[A-Za-z\s]+|Office\s+National\s+[A-Za-z\s]+|Soci[ée]t[ée]\s+Nationale\s+[A-Za-z\s]+|Commune\s+(?:Urbaine\s+|Rurale\s+|de\s+)[A-Z][a-zA-Z]+)",
         text_clean,
         re.IGNORECASE
     )
-    if mo_match:
-        cand = mo_match.group(1).strip()
-        cand_clean = re.sub(r'^(royaume du maroc\s*|ministère de\s*)', '', cand, flags=re.IGNORECASE).strip()
-        if 5 < len(cand_clean) < 150:
-            mo_candidate = cand
-            mo_source = "regex"
-            mo_score = 0.85
-            mo_snippet = mo_match.group(0)
+    if inst_match:
+        inst_name = inst_match.group(0).strip()
+        if 10 < len(inst_name) < 150:
+            mo_candidate = inst_name
+            mo_source = "regex_institution"
+            mo_score = 0.9
+            mo_snippet = inst_match.group(0)
+
+    if not mo_candidate:
+        mo_match = re.search(
+            r"(?:maitre\s+d['’]?ouvrage|acheteur\s+public|organisme\s+acheteur)\s*[:\-]?\s*([^.]+?)(?=\. |Objet|Le\s+[A-Z]|Caution|Estimation|Date|Avis|Appel|\bdu\b|\bau\b|\best\s+fix|\best\b)",
+            text_clean,
+            re.IGNORECASE
+        )
+        if mo_match:
+            cand = mo_match.group(1).strip()
+            cand_clean = re.sub(r'^(royaume du maroc\s*|ministère de\s*)', '', cand, flags=re.IGNORECASE).strip()
+            if 5 < len(cand_clean) < 150 and cand_clean.lower() not in ["le maître d’ouvrage", "le maitre d'ouvrage", "maître d’ouvrage", "maitre d'ouvrage"]:
+                mo_candidate = cand
+                mo_source = "regex"
+                mo_score = 0.85
+                mo_snippet = mo_match.group(0)
 
     if nlp:
         doc = nlp(text_clean[:2000])
@@ -110,7 +153,7 @@ def extract(text: str) -> dict:
         for ent in doc.ents:
             if ent.label_ == "ORG":
                 t = ent.text.strip()
-                if 5 < len(t) < 100 and not any(junk in t.lower() for junk in ["royaume", "maroc", "objet", "cps", "règlement"]):
+                if 5 < len(t) < 100 and not any(junk in t.lower() for junk in ["royaume", "maroc", "objet", "cps", "règlement", "maître"]):
                     orgs.append((t, ent.text))
         
         if orgs:
@@ -125,12 +168,6 @@ def extract(text: str) -> dict:
                 mo_source = "spacy"
                 mo_score = 0.75
                 mo_snippet = orgs[0][1]
-                
-    if not mo_candidate and mo_match:
-        mo_candidate = mo_match.group(1).strip()
-        mo_source = "regex"
-        mo_score = 0.6
-        mo_snippet = mo_match.group(0)
         
     if mo_candidate:
         mo_candidate = re.sub(r'\s+', ' ', mo_candidate).strip()
@@ -176,27 +213,50 @@ def extract(text: str) -> dict:
         add_field("email", email_match.group(0), "regex", 0.9, email_match.group(0))
 
     # Date d'ouverture des plis (NLP-04)
-    ouverture_match = re.search(r"s[ée]ance\s+d['’]ouverture.*?(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s*(?:à\s*)?\d{1,2}h\d{0,2})", text_clean, re.IGNORECASE)
+    ouverture_match = re.search(
+        r"(\d{1,2}\s+(?:janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre)\s+\d{4})[^\.\n]*?(?:l[\'’]ouverture\s+des\s+plis|s[ée]ance\s+d[\'’]ouverture)",
+        text_clean,
+        re.IGNORECASE
+    )
+    if not ouverture_match:
+        ouverture_match = re.search(
+            r"(?:s[ée]ance\s+d['’]ouverture|l['’]ouverture\s+des\s+plis).*?(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s*(?:à\s*)?\d{1,2}h\d{0,2}|\d{1,2}\s+(?:janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre)\s+\d{4})",
+            text_clean,
+            re.IGNORECASE
+        )
     if ouverture_match:
-        add_field("date_ouverture_plis", normalize_date(ouverture_match.group(1).split(" ")[0].split("à")[0]), "regex", 0.85, ouverture_match.group(0))
+        raw_date_str = ouverture_match.group(1).split("à")[0].strip()
+        add_field("date_ouverture_plis", normalize_date(raw_date_str), "regex", 0.85, ouverture_match.group(0))
 
     # Références réglementaires (NLP-08)
     reg_match = re.search(r"(article\s+\d+\s+du\s+d[ée]cret\s+n[°º]?\s*[\d-]+)", text_clean, re.IGNORECASE)
     if reg_match:
         add_field("reference_reglementaire", reg_match.group(1), "regex", 0.85, reg_match.group(0))
 
-    # Détection de langue (NLP-11)
-    try:
-        from langdetect import detect
-        lang = detect(text_clean[:500] if len(text_clean) > 500 else text_clean)
-        add_field("langue_detectee", lang, "langdetect", 0.9, "")
-    except Exception:
-        pass
+    # Détection de langue et bilinguisme (NLP-11)
+    is_ar = bool(re.search(r"[\u0600-\u06FF]", text_clean))
+    is_fr = bool(re.search(r"[a-zA-Z]{3,}", text_clean))
+    
+    if is_ar and is_fr:
+        detected_lang = "BI"
+    elif is_ar:
+        detected_lang = "AR"
+    else:
+        detected_lang = "FR"
+    add_field("langue_detectee", detected_lang, "charset_heuristics", 0.95, "")
 
-    # Détection de qualité (NLP-13)
-    # Si on a trouvé moins de 3 champs pertinents (hors "langue_detectee")
-    champs_trouves = [k for k in info["fields"].keys() if k != "langue_detectee"]
-    if len(champs_trouves) < 3:
+    # Détection de qualité et score de confiance global (NLP-13)
+    mandatory_fields = ["objet", "estimation_mad", "maitre_ouvrage", "date_limite", "caution_mad"]
+    extracted_fields = [k for k in info["fields"].keys() if k != "langue_detectee"]
+    
+    found_mandatory = [f for f in mandatory_fields if f in info["fields"]]
+    quality_score = round(len(found_mandatory) / len(mandatory_fields), 2)
+    
+    info["confidence_score"] = quality_score
+    info["missing_fields"] = [f for f in mandatory_fields if f not in info["fields"]]
+    
+    # Flag low_quality si moins de 2 champs obligatoires ou score < 0.4
+    if quality_score < 0.40 or len(extracted_fields) < 3:
         info["low_quality"] = True
     else:
         info["low_quality"] = False

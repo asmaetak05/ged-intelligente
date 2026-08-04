@@ -80,12 +80,14 @@ def process_document_async(document_id: int, file_path: str, db: Session = None)
 
         # Reprise OCR par lot de 10 pages (OC-04)
         chunk_size = 10
+        total_pages = ocr_log.total_pages or 1
         start_page = (ocr_log.last_processed_page or 0) + 1
+        if start_page > total_pages:
+            start_page = 1
         
         ok = False
         payload = None
         raw_fields = None
-        total_pages = ocr_log.total_pages or 999999
         
         while start_page <= total_pages:
             end_page = start_page + chunk_size - 1
@@ -97,7 +99,9 @@ def process_document_async(document_id: int, file_path: str, db: Session = None)
                 total_pages = total_pages_pdf
                 ocr_log.total_pages = total_pages
                 
-            if not ok or start_page > total_pages:
+            if not ok or end_page >= total_pages or start_page >= total_pages:
+                ocr_log.last_processed_page = total_pages
+                db.commit()
                 break
                 
             ocr_log.last_processed_page = min(end_page, total_pages)

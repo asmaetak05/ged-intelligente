@@ -1,90 +1,81 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from datetime import datetime
 from typing import List, Optional
 
-from backend.database import get_db
-from backend.models import User, Role
-from backend.auth.rbac import RequireRole
-from backend.auth.auth_handler import get_password_hash, validate_password_policy
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, ConfigDict, EmailStr
+from sqlalchemy.orm import Session
 
-router = APIRouter(prefix="/api/v1/users", tags=["users"])
+from backend.auth.auth_handler import get_password_hash, validate_password_policy
+from backend.auth.rbac import RequireRole
+from backend.database import get_db
+from backend.models import Role, User
+
+router = APIRouter(prefix='/api/v1/users', tags=['users'])
 
 class UserCreate(BaseModel):
     username: str
     email: EmailStr
     password: str
-    roles: List[str] = ["reader"]
+    roles: List[str] = ['reader']
+
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    roles: Optional[List[str]] = None
+    is_active: Optional[bool] = None
 
 class UserResponse(BaseModel):
     id: int
     username: str
     email: EmailStr
     is_active: bool
+    last_login_at: Optional[datetime] = None
     roles: List[str]
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        orm_mode = True
+def serialize(user: User) -> UserResponse:
+    return UserResponse(id=user.id, username=user.username, email=user.email, is_active=user.is_active, last_login_at=user.last_login_at, roles=[role.name for role in user.roles])
 
-@router.get("", response_model=List[UserResponse])
-def get_users(db: Session = Depends(get_db), current_user = Depends(RequireRole(["admin"]))):
-    users = db.query(User).all()
-    result = []
-    for u in users:
-        result.append(UserResponse(
-            id=u.id,
-            username=u.username,
-            email=u.email,
-            is_active=u.is_active,
-            roles=[r.name for r in u.roles]
-        ))
-    return result
+def resolve_roles(names: List[str], db: Session) -> List[Role]:
+    roles = db.query(Role).filter(Role.name.in_(names)).all()
+    if len(roles) != len(set(names)):
+        raise HTTPException(status_code=400, detail='One or more roles do not exist')
+    return roles
 
-@router.post("", response_model=UserResponse)
-def create_user(payload: UserCreate, db: Session = Depends(get_db), current_user = Depends(RequireRole(["admin"]))):
-    if db.query(User).filter(User.username == payload.username).first():
-        raise HTTPException(status_code=400, detail="Username already registered")
-    if db.query(User).filter(User.email == payload.email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
-        
+@router.get('', response_model=List[UserResponse])
+def get_users(db: Session = Depends(get_db), current_user=Depends(RequireRole(['admin']))):
+    return [serialize(user) for user in db.query(User).order_by(User.username).all()]
+
+@router.post('', response_model=UserResponse)
+def create_user(payload: UserCreate, db: Session = Depends(get_db), current_user=Depends(RequireRole(['admin']))):
+    if db.query(User).filter(User.username == payload.username).first() or db.query(User).filter(User.email == payload.email).first():
+        raise HTTPException(status_code=400, detail='Username or email already registered')
     try:
         validate_password_policy(payload.password)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-        
-    db_roles = []
-    for role_name in payload.roles:
-        r = db.query(Role).filter(Role.name == role_name).first()
-        if not r:
-            raise HTTPException(status_code=400, detail=f"Role '{role_name}' does not exist")
-        db_roles.append(r)
-        
-    new_user = User(
-        username=payload.username,
-        email=payload.email,
-        hashed_password=get_password_hash(payload.password),
-        roles=db_roles
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    
-    return UserResponse(
-        id=new_user.id,
-        username=new_user.username,
-        email=new_user.email,
-        is_active=new_user.is_active,
-        roles=[r.name for r in new_user.roles]
-    )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    user = User(username=payload.username, email=payload.email, hashed_password=get_password_hash(payload.password), roles=resolve_roles(payload.roles, db))
+    db.add(user); db.commit(); db.refresh(user)
+    return serialize(user)
 
-@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(user_id: int, db: Session = Depends(get_db), current_user = Depends(RequireRole(["admin"]))):
+@router.patch('/{user_id}', response_model=UserResponse)
+def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db), current_user=Depends(RequireRole(['admin']))):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if user.id == current_user.id:
-        raise HTTPException(status_code=400, detail="Cannot delete your own account")
-        
-    db.delete(user)
-    db.commit()
-    return
+        raise HTTPException(status_code=404, detail='User not found')
+    if payload.email is not None:
+        duplicate = db.query(User).filter(User.email == payload.email, User.id != user_id).first()
+        if duplicate: raise HTTPException(status_code=400, detail='Email already registered')
+        user.email = payload.email
+    if payload.roles is not None: user.roles = resolve_roles(payload.roles, db)
+    if payload.is_active is not None:
+        if user.id == current_user.id and not payload.is_active: raise HTTPException(status_code=400, detail='Cannot deactivate your own account')
+        user.is_active = payload.is_active
+    db.commit(); db.refresh(user)
+    return serialize(user)
+
+@router.delete('/{user_id}', status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(user_id: int, db: Session = Depends(get_db), current_user=Depends(RequireRole(['admin']))):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user: raise HTTPException(status_code=404, detail='User not found')
+    if user.id == current_user.id: raise HTTPException(status_code=400, detail='Cannot delete your own account')
+    db.delete(user); db.commit()

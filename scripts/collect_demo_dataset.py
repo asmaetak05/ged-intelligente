@@ -7,8 +7,8 @@ from playwright.async_api import async_playwright
 PORTAIL_URL = "http://appels-offres.equipement.gov.ma/recherche/criteres.aspx"
 
 # Note from screenshot: "date parution a filtrer entre 07/2025 et 07/2026"
-DATE_DEBUT = "01/07/2025"
-DATE_FIN = "01/07/2026"
+DATE_DEBUT = "01/01/2025"
+DATE_FIN = "31/12/2025"
 
 # Try up to 50 AOs but we will stop after the first success
 LIMITE_AO = 50

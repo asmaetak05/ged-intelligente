@@ -6,6 +6,8 @@ try:
     import pytesseract
     from pdf2image import convert_from_path
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+    if os.path.exists(r'C:\Program Files\Tesseract-OCR\tessdata'):
+        os.environ['TESSDATA_PREFIX'] = r'C:\Program Files\Tesseract-OCR\tessdata'
 except ImportError:
     pytesseract = None
     convert_from_path = None

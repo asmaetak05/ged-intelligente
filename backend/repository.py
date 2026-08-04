@@ -204,30 +204,46 @@ class MarcheRepository:
 
     # ------------------------------------------------------------------ FTS
     def search_fts(self, query: str, limit: int = 50) -> List[models.Marche]:
-        """Recherche plein texte portable.
+        """Recherche plein texte portable via le module PostgresFTS."""
+        from search.postgres_fts import PostgresFTS
+        fts_engine = PostgresFTS(self.db)
+        results, _ = fts_engine.search(query=query, page_size=limit)
+        return [r.marche for r in results]
 
-        Stratégie : ``LIKE`` insensible à la casse sur les colonnes
-        textuelles pertinentes (``titre_projet``, ``numero_appel_offre``,
-        ``reference``, ``tsv_search``). Le FTS natif (GIN PostgreSQL /
-        FTS5 SQLite) sera branché en T1.6 + T2.4 via une colonne
-        calculée déclenchée.
-        """
-        if not query or not query.strip():
-            return []
-        needle = f"%{query.strip()}%"
-        stmt = (
-            select(models.Marche)
-            .where(
-                or_(
-                    models.Marche.titre_projet.ilike(needle),
-                    models.Marche.numero_appel_offre.ilike(needle),
-                    models.Marche.reference.ilike(needle),
-                    models.Marche.tsv_search.ilike(needle),
-                )
-            )
-            .limit(limit)
+    def search_fts_advanced(
+        self,
+        query: str,
+        categorie: Optional[models.CategorieMarche] = None,
+        region: Optional[str] = None,
+        ville: Optional[str] = None,
+        organisme: Optional[str] = None,
+        date_min: Optional[date] = None,
+        date_max: Optional[date] = None,
+        montant_min: Optional[float] = None,
+        montant_max: Optional[float] = None,
+        order_by: str = "pertinence",
+        order_dir: str = "desc",
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[Any], int]:
+        """Recherche FTS enrichie retournant (list[FtsSearchResult], total_count)."""
+        from search.postgres_fts import PostgresFTS
+        fts_engine = PostgresFTS(self.db)
+        return fts_engine.search(
+            query=query,
+            categorie=categorie,
+            region=region,
+            ville=ville,
+            organisme=organisme,
+            date_min=date_min,
+            date_max=date_max,
+            montant_min=montant_min,
+            montant_max=montant_max,
+            order_by=order_by,
+            order_dir=order_dir,
+            page=page,
+            page_size=page_size,
         )
-        return list(self.db.execute(stmt).scalars().all())
 
     # ----------------------------------------------------------- Agrégations
     def kpis(self) -> Dict[str, Any]:

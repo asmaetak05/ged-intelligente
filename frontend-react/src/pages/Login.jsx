@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Lock, Mail } from 'lucide-react';
 import useAuthStore from '../store/useAuthStore';
 import { toast } from 'sonner';
+import apiClient from '../api/axios';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -28,18 +29,16 @@ const Login = () => {
       formBody.append('username', data.email); // le backend utilise OAuth2PasswordRequestForm → champ "username"
       formBody.append('password', data.password);
   
-      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
-        method: 'POST',
+      const response = await apiClient.post('/api/v1/auth/login', formBody, {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formBody,
       });
   
-      if (!response.ok) {
+      if (!response.data) {
         const err = await response.json();
         throw new Error(err.detail || 'Échec de connexion');
       }
   
-      const { access_token, role } = await response.json();
+      const { access_token, role } = response.data;
       const user = { email: data.email, name: data.email.split('@')[0], role };
   
       login(user, access_token); // stocke le VRAI token JWT

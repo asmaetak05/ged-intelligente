@@ -29,7 +29,7 @@ from backend.limiter import limiter
 setup_logging()
 logger = structlog.get_logger()
 
-from fastapi import Body, Depends, FastAPI, File, HTTPException, UploadFile, BackgroundTasks, WebSocket, WebSocketDisconnect, Request
+from fastapi import Body, Depends, FastAPI, File, HTTPException, UploadFile, BackgroundTasks, WebSocket, WebSocketDisconnect, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -181,6 +181,41 @@ def system_health(db: Session = Depends(get_db)):
     }
 
 
+@app.get("/api/v1/system/references", tags=["system"])
+def get_system_references(db: Session = Depends(get_db)):
+    """Retourne l'ensemble des données de référence (types avis, villes, directions, qualifications)."""
+    types_avis = db.query(models.TypeAvis).all()
+    procedures = db.query(models.TypeProcedure).all()
+    etats = db.query(models.EtatAvis).all()
+    directions = db.query(models.Direction).all()
+    villes = db.query(models.Ville).order_by(models.Ville.name).all()
+    qualifications = db.query(models.Qualification).all()
+    agrements = db.query(models.Agrement).all()
+
+    return {
+        "types_avis": [{"id": t.id, "code": t.code, "label": t.label} for t in types_avis],
+        "procedures": [{"id": p.id, "code": p.code, "label": p.label} for p in procedures],
+        "etats": [{"id": e.id, "code": e.code, "label": e.label} for e in etats],
+        "directions": [{"id": d.id, "name": d.name, "type_dir": d.type_dir} for d in directions],
+        "villes": [
+            {
+                "id": v.id,
+                "name": v.name,
+                "province": v.province,
+                "region": v.region,
+                "lat": float(v.lat) if v.lat else None,
+                "lon": float(v.lon) if v.lon else None,
+            }
+            for v in villes
+        ],
+        "qualifications": [
+            {"id": q.id, "code": q.code, "label": q.label, "classe": q.classe, "categorie": q.categorie}
+            for q in qualifications
+        ],
+        "agrements": [{"id": a.id, "code": a.code, "label": a.label, "type_agrement": a.type_agrement} for a in agrements],
+    }
+
+
 # ===========================================================================
 # Helpers — sérialisation et parsing
 # ===========================================================================
@@ -267,13 +302,19 @@ async def upload_document(
     import uuid
     import shutil
     
-    # Validation stricte (SE-08)
+    # Validation du format (ZIP, PDF, DOCX)
     magic = await file.read(4)
-    if magic != b"PK\x03\x04":
-        raise HTTPException(status_code=400, detail="Type de fichier invalide. Seuls les fichiers ZIP sont autorisés.")
     await file.seek(0)
     
-    MAX_UPLOAD_SIZE = 100 * 1024 * 1024 # 100 MB max for example
+    filename_lower = (file.filename or "").lower()
+    is_zip = magic == b"PK\x03\x04" or filename_lower.endswith(".zip")
+    is_pdf = magic.startswith(b"%PDF") or filename_lower.endswith(".pdf")
+    is_docx = filename_lower.endswith(".docx")
+    
+    if not (is_zip or is_pdf or is_docx):
+        raise HTTPException(status_code=400, detail="Type de fichier invalide. Formats acceptés : ZIP, PDF, DOCX.")
+    
+    MAX_UPLOAD_SIZE = 100 * 1024 * 1024 # 100 MB max
     file.file.seek(0, 2)
     file_size = file.file.tell()
     await file.seek(0)
@@ -282,11 +323,11 @@ async def upload_document(
         raise HTTPException(status_code=413, detail=f"Fichier trop volumineux. Max: {MAX_UPLOAD_SIZE/1024/1024} MB")
     
     os.makedirs("data/raw", exist_ok=True)
-    # Check if we can infer numero_ordre from filename
-    if file.filename and "AO_" in file.filename:
-        safe_name = file.filename
+    ext = ".zip" if is_zip else (".pdf" if is_pdf else ".docx")
+    if file.filename:
+        safe_name = os.path.basename(file.filename)
     else:
-        safe_name = f"doc_{uuid.uuid4().hex[:8]}.zip"
+        safe_name = f"doc_{uuid.uuid4().hex[:8]}{ext}"
         
     file_path = os.path.join("data/raw", safe_name)
     with open(file_path, "wb") as buffer:
@@ -320,7 +361,7 @@ async def upload_document(
     doc = models.Document(
         archive_name=safe_name,
         file_name=file.filename or safe_name,
-        extension="zip",
+        extension=ext.lstrip("."),
         storage_path=file_path,
         status=models.DocStatus.raw_zip,
         file_size_kb=file_size_kb,
@@ -361,26 +402,73 @@ def get_document_status(doc_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/ged/search")
-def search_documents(q: str = "", db: Session = Depends(get_db)):
-    """Recherche plein texte (FTS portable via ``MarcheRepository.search_fts``)."""
+def search_documents(
+    q: str = "",
+    page: int = 1,
+    page_size: int = 20,
+    categorie: Optional[str] = None,
+    region: Optional[str] = None,
+    ville: Optional[str] = None,
+    organisme: Optional[str] = None,
+    date_min: Optional[date] = None,
+    date_max: Optional[date] = None,
+    montant_min: Optional[float] = None,
+    montant_max: Optional[float] = None,
+    order_by: str = "pertinence",
+    order_dir: str = "desc",
+    db: Session = Depends(get_db),
+):
+    """Recherche plein texte enrichie (FTS natif avec ranking, highlights et filtres)."""
     if not q.strip():
-        return {"query": q, "count": 0, "results": []}
+        return {"query": q, "total": 0, "page": page, "page_size": page_size, "results": []}
+    
+    cat_enum = _normalize_categorie(categorie) if categorie else None
     repo = MarcheRepository(db)
-    rows = repo.search_fts(q, limit=100)
-    results = [
+    results, total = repo.search_fts_advanced(
+        query=q,
+        categorie=cat_enum,
+        region=region,
+        ville=ville,
+        organisme=organisme,
+        date_min=date_min,
+        date_max=date_max,
+        montant_min=montant_min,
+        montant_max=montant_max,
+        order_by=order_by,
+        order_dir=order_dir,
+        page=page,
+        page_size=page_size,
+    )
+    
+    formatted_results = [
         {
-            "numero_appel_offre": m.numero_appel_offre,
-            "titre_projet": m.titre_projet,
-            "organisme_acheteur": m.organisme_acheteur,
-            "ville_execution": m.ville_execution or "Maroc",
+            "id": r.marche.id,
+            "numero_appel_offre": r.marche.numero_appel_offre,
+            "titre_projet": r.marche.titre_projet,
+            "organisme_acheteur": r.marche.organisme_acheteur,
+            "ville_execution": r.marche.ville_execution or "Maroc",
+            "region": r.marche.region,
+            "montant": float(r.marche.montant) if r.marche.montant is not None else None,
+            "delai_execution_mois": r.marche.delai_execution_mois,
+            "date_parution": r.marche.date_parution.isoformat() if r.marche.date_parution else None,
+            "date_limite": r.marche.date_limite.isoformat() if r.marche.date_limite else None,
             "categorie_prestation": (
-                m.categorie_prestation.value if m.categorie_prestation else None
+                r.marche.categorie_prestation.value if r.marche.categorie_prestation else None
             ),
-            "highlight": "..." + (m.titre_projet[:50] if m.titre_projet else "") + "...",
+            "score": r.score,
+            "highlight": r.highlight,
+            "matched_fields": r.matched_fields,
         }
-        for m in rows
+        for r in results
     ]
-    return {"query": q, "count": len(results), "results": results}
+    return {
+        "query": q,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "count": len(formatted_results),
+        "results": formatted_results,
+    }
 
 
 @app.get("/api/v1/ged/documents/{doc_id}/preview")
@@ -500,7 +588,6 @@ def export_appels_offres(q: str = "", format: str = "csv", db: Session = Depends
         raise HTTPException(status_code=400, detail="Format non supporté. Utilisez 'csv' ou 'xlsx'")
 
 
-
 @app.get("/api/v1/ged/appels-offres/{numero_ordre:path}")
 def get_appel_offre(numero_ordre: str, db: Session = Depends(get_db)):
     """Détail d'un appel d'offres + OcrLog + Document.storage_path."""
@@ -509,7 +596,6 @@ def get_appel_offre(numero_ordre: str, db: Session = Depends(get_db)):
     if not marche:
         raise HTTPException(status_code=404, detail=f"Appel d'offres {numero_ordre} introuvable")
     payload = _marche_to_legacy(marche)
-    # Enrichissement : document source + logs OCR
     if marche.document_source_id:
         doc_repo = DocumentRepository(db)
         doc = doc_repo.get(marche.document_source_id)
@@ -541,14 +627,7 @@ def get_appel_offre(numero_ordre: str, db: Session = Depends(get_db)):
 # --- Réception des données extraites par le pipeline de scraping/OCR/NLP ---
 @app.post("/api/v1/ged/appels-offres")
 def create_or_update_appel_offre(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
-    """Crée ou met à jour un appel d'offres à partir d'un payload de scraping.
-
-    Accepte indifféremment les noms historiques (``numero_ordre``,
-    ``objet``, ``maitre_ouvrage``, ``estimation_mad``, etc.) ou les
-    noms normalisés (``numero_appel_offre``, ``titre_projet``,
-    ``organisme_acheteur``, ``montant``).
-    """
-    # Mapping legacy → colonnes SQLAlchemy
+    """Crée ou met à jour un appel d'offres à partir d'un payload de scraping."""
     numero = payload.get("numero_ordre") or payload.get("numero_appel_offre")
     if not numero:
         raise HTTPException(status_code=400, detail="numero_ordre est obligatoire")
@@ -557,42 +636,41 @@ def create_or_update_appel_offre(payload: Dict[str, Any] = Body(...), db: Sessio
         "titre_projet": payload.get("objet") or payload.get("titre_projet"),
         "organisme_acheteur": payload.get("maitre_ouvrage") or payload.get("organisme_acheteur"),
         "montant": _parse_number(payload.get("estimation_mad") or payload.get("montant")),
+        "budget_estimatif_mad": _parse_number(payload.get("estimation_mad") or payload.get("montant")),
         "caution_provisoire_mad": _parse_number(payload.get("caution_mad")),
-        "delai_execution_mois": int(_parse_number(payload.get("delai_execution"))) or None,
-        "ville_execution": payload.get("lieu_ouverture_plis"),
+        "delai_execution_mois": int(_parse_number(payload.get("delai_execution"))) if _parse_number(payload.get("delai_execution")) else None,
+        "penalite_retard_mille": _parse_number(payload.get("penalite_retard_mille") or payload.get("penalite_retard")),
+        "ville_execution": payload.get("lieu_ouverture_plis") or payload.get("ville_execution") or payload.get("ville"),
         "agreements_exiges": _serialiser_champ(payload.get("agreements_exiges")),
         "categorie_prestation": _normalize_categorie(payload.get("categorie_marche") or payload.get("categorie_prestation")),
+        "date_parution": payload.get("date_parution"),
+        "date_limite": payload.get("date_limite"),
+        "date_ouverture_plis": payload.get("date_ouverture_plis"),
     }
-    # Champs optionnels préservés tels quels
     for legacy, new in (("reference", "reference"), ("region", "region")):
         if legacy in payload:
             normalized[new] = payload[legacy]
-    # Filtrer les None et normaliser
     normalized = {k: v for k, v in normalized.items() if v is not None and v != ""}
 
     repo = MarcheRepository(db)
     try:
         marche, action = repo.upsert(normalized)
         db.commit()
-        
-        # Trigger ML Insight asynchronously or synchronously if fast enough
-        # The inference is fast enough (SVM) to do it synchronously
+
         if marche.titre_projet:
             text = extract_text_feature(marche)
             pred_cat, pred_prob = predict_category(text)
             
-            # Check if MlInsight exists
             insight = db.query(models.MlInsight).filter_by(marche_id=marche.id).first()
             if not insight:
                 insight = models.MlInsight(marche_id=marche.id)
                 db.add(insight)
             
             if pred_cat:
-                insight.predicted_categorie = models.CategorieMarche(pred_cat)
+                insight.predicted_categorie = _normalize_categorie(pred_cat)
                 insight.classification_confidence = pred_prob
                 
             db.commit()
-            
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"id": marche.id, "numero_ordre": marche.numero_appel_offre, "action": action}
@@ -614,7 +692,6 @@ def _normalize_categorie(value: Any) -> Optional[models.CategorieMarche]:
     }
     if s.lower() in mapping:
         return mapping[s.lower()]
-    # Tentative directe sur la valeur enum
     for cat in models.CategorieMarche:
         if cat.value.lower() == s.lower():
             return cat
@@ -683,7 +760,6 @@ def get_categories_distribution(db: Session = Depends(get_db)):
 def get_top_buyers(db: Session = Depends(get_db)):
     """Top acheteurs par volume financier cumulé."""
     items = MarcheRepository(db).top_buyers(limit=10)
-    # Format compatible avec le frontend existant (tronqué à 20 chars)
     return [
         {
             "organisme": (
@@ -694,10 +770,6 @@ def get_top_buyers(db: Session = Depends(get_db)):
         }
         for item in items
     ]
-
-from fastapi import Query
-from typing import List
-
 @app.get("/api/v1/compare")
 def compare_marches(ids: str = Query(..., description="IDs séparés par des virgules"), db: Session = Depends(get_db)):
     """Comparaison de plusieurs appels d'offres."""
@@ -771,12 +843,14 @@ def _run_retrain_and_anomaly_detection():
     with SessionLocal() as db:
         db.query(models.MlInsight).update({"is_anomaly": False})
         if anomalies:
-            for marche_id in anomalies:
+            for anomaly in anomalies:
+                marche_id = anomaly["marche_id"]
                 insight = db.query(models.MlInsight).filter_by(marche_id=marche_id).first()
                 if not insight:
                     insight = models.MlInsight(marche_id=marche_id)
                     db.add(insight)
                 insight.is_anomaly = True
+                insight.anomaly_score = anomaly.get("anomaly_score", 0)
         db.commit()
 
 
@@ -796,17 +870,34 @@ def get_ml_anomalies(db: Session = Depends(get_db)):
         .limit(100)
         .all()
     )
+    anomaly_items = []
+    for insight in insights:
+        marche = db.query(models.Marche).filter(models.Marche.id == insight.marche_id).first()
+        anomaly_items.append({
+            "marche_id": insight.marche_id,
+            "numero_appel_offre": marche.numero_appel_offre if marche else None,
+            "titre_projet": marche.titre_projet if marche else None,
+            "categorie": marche.categorie_prestation.value if marche and marche.categorie_prestation else None,
+            "predicted_categorie": insight.predicted_categorie.value if insight.predicted_categorie else None,
+            "classification_confidence": float(insight.classification_confidence) if insight.classification_confidence is not None else None,
+            "anomaly_score": float(insight.anomaly_score) if insight.anomaly_score is not None else 0,
+            "generated_at": insight.generated_at.isoformat() if insight.generated_at else None,
+        })
     return {
         "anomalies_count": len(insights),
-        "anomalies_list": [
-            {
-                "marche_id": i.marche_id,
-                "anomaly_score": float(i.anomaly_score) if i.anomaly_score else 0,
-                "generated_at": i.generated_at.isoformat() if i.generated_at else None,
-            }
-            for i in insights
-        ],
+        "anomalies_list": anomaly_items,
     }
+
+
+@app.get("/api/v1/ml/metrics")
+def get_ml_metrics():
+    """Retourne les métriques du dernier entraînement, si disponibles."""
+    metrics_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ml", "models", "metrics.json")
+    try:
+        with open(metrics_path, "r", encoding="utf-8") as metrics_file:
+            return json.load(metrics_file)
+    except FileNotFoundError:
+        return {"accuracy": None, "sample_count": 0, "classes": []}
 
 
 # ===========================================================================

@@ -7,8 +7,8 @@ import re
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "my_super_secret_key_for_ged_intelligente")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
+ACCESS_TOKEN_EXPIRE_MINUTES = 10080  # 7 jours pour un confort de démonstration fluide
+REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))

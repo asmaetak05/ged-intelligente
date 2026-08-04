@@ -1,0 +1,49 @@
+{
+  "accuracy": 0.6428571428571429,
+  "sample_count": 53,
+  "classes": [
+    "Fournitures",
+    "Travaux",
+    "Services",
+    "Études"
+  ],
+  "report": {
+    "Fournitures": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 2.0
+    },
+    "Services": {
+      "precision": 0.5555555555555556,
+      "recall": 1.0,
+      "f1-score": 0.7142857142857143,
+      "support": 5.0
+    },
+    "Travaux": {
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "f1-score": 0.8,
+      "support": 2.0
+    },
+    "Études": {
+      "precision": 1.0,
+      "recall": 0.4,
+      "f1-score": 0.5714285714285714,
+      "support": 5.0
+    },
+    "accuracy": 0.6428571428571429,
+    "macro avg": {
+      "precision": 0.5555555555555556,
+      "recall": 0.6,
+      "f1-score": 0.5214285714285714,
+      "support": 14.0
+    },
+    "weighted avg": {
+      "precision": 0.6507936507936508,
+      "recall": 0.6428571428571429,
+      "f1-score": 0.573469387755102,
+      "support": 14.0
+    }
+  }
+}

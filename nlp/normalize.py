@@ -18,8 +18,19 @@ def normalize_date(fr_text: str) -> date:
 def normalize_money(fr_text: str) -> float:
     if not fr_text:
         return None
-    clean = re.sub(r'[^\d,\.]', '', fr_text.replace(' ', ''))
-    clean = clean.replace(',', '.')
+    clean = re.sub(r'[^\d,\.]', '', str(fr_text).strip())
+    if not clean:
+        return None
+    if '.' in clean and ',' in clean:
+        if clean.rfind(',') > clean.rfind('.'):
+            clean = clean.replace('.', '').replace(',', '.')
+        else:
+            clean = clean.replace(',', '')
+    elif ',' in clean:
+        if re.search(r',\d{1,2}$', clean):
+            clean = clean.replace(',', '.')
+        else:
+            clean = clean.replace(',', '')
     try:
         return float(clean)
     except:

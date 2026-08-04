@@ -34,19 +34,37 @@ def save_json(numero, data):
     with open(f'data/processed/json/{numero}.json', 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-def process_archive(zip_file_path, utiliser_llm=False, start_page=None, end_page=None):
-    base_name = os.path.basename(zip_file_path)
-    numero_ordre = base_name.replace('.zip', '').replace('AO_', '')
-    extract_dir = zip_file_path.replace(".zip", "_extracted")
-
-    try:
-        extract_zip(zip_file_path, extract_dir)
-    except Exception as e:
-        logging.error(f"[{numero_ordre}] Impossible d'extraire le ZIP : {e}")
+def process_archive(file_path, utiliser_llm=False, start_page=None, end_page=None):
+    base_name = os.path.basename(file_path)
+    numero_ordre = os.path.splitext(base_name)[0].replace('AO_', '')
+    
+    files_to_process = []
+    if file_path.lower().endswith('.zip'):
+        extract_dir = file_path.replace(".zip", "_extracted")
+        try:
+            extract_zip(file_path, extract_dir)
+            files_to_process = get_files_by_ext(extract_dir, ['.docx', '.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'])
+        except Exception as e:
+            logging.error(f"[{numero_ordre}] Impossible d'extraire le ZIP : {e}")
+            return False, None, None, 0
+    elif any(file_path.lower().endswith(ext) for ext in ['.docx', '.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif']):
+        files_to_process = [file_path]
+    else:
+        logging.error(f"[{numero_ordre}] Format de fichier non supporte : {base_name}")
         return False, None, None, 0
 
-    files_to_process = get_files_by_ext(extract_dir, ['.docx', '.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'])
-    logging.info(f"[{numero_ordre}] {len(files_to_process)} document(s) trouvé(s) dans l'archive.")
+    def file_priority(path):
+        p_lower = path.lower()
+        if 'avis' in p_lower:
+            return 1
+        elif 'rc' in p_lower or 'reglement' in p_lower:
+            return 2
+        elif 'cps' in p_lower:
+            return 3
+        return 4
+
+    files_to_process.sort(key=file_priority)
+    logging.info(f"[{numero_ordre}] {len(files_to_process)} document(s) trouvé(s) pour traitement.")
 
     full_text = ""
     if start_page and start_page > 1:
@@ -58,14 +76,20 @@ def process_archive(zip_file_path, utiliser_llm=False, start_page=None, end_page
 
     total_pages_pdf = 0
     for f in files_to_process:
+        fname = os.path.basename(f).lower()
         if f.lower().endswith('.docx'):
             text = read_docx(f)
+            total_pages_pdf = max(total_pages_pdf, 1)
         elif f.lower().endswith('.pdf'):
             from ocr.extract_native import EncryptedPdfError
             try:
                 text, needs_ocr = read_pdf(f)
                 if needs_ocr:
-                    text, _, total_pages_pdf = extract_text_from_scanned_pdf(f, text, start_page, end_page)
+                    # Pour les avis : scan complet (1-3 pages). Pour les gros CPS/RC : 5 pages suffisent pour les clauses financières
+                    max_scan_pages = None if 'avis' in fname else (end_page or 5)
+                    text, _, total_pages_pdf = extract_text_from_scanned_pdf(f, text, start_page=start_page, end_page=max_scan_pages)
+                else:
+                    total_pages_pdf = max(total_pages_pdf, 1)
             except EncryptedPdfError as e:
                 logging.error(f"[{numero_ordre}] {e}")
                 text = ""
@@ -78,12 +102,16 @@ def process_archive(zip_file_path, utiliser_llm=False, start_page=None, end_page
                 img = denoise(img)
                 img = deskew(img)
                 text = pytesseract.image_to_string(img, lang='fra+ara')
+                total_pages_pdf = max(total_pages_pdf, 1)
             except Exception as e:
                 logging.error(f"Erreur OCR image {f}: {e}")
                 text = ""
         else:
             text = ""
         full_text += text + "\n"
+        
+    if total_pages_pdf == 0:
+        total_pages_pdf = 1
         
     save_text(numero_ordre, full_text)
 
@@ -116,7 +144,7 @@ def main():
     reussis, echoues = 0, 0
     for f in zips:
         logging.info(f"--- Traitement de {f} ---")
-        ok, payload, raw_fields = process_archive(os.path.join(raw_dir, f))
+        ok, payload, raw_fields, total_pages = process_archive(os.path.join(raw_dir, f))
         if ok:
             reussis += 1
             logging.info(f"Payload généré: {payload}")
