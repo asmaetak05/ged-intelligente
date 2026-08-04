@@ -81,3 +81,5 @@ alembic/__pycache__/
 
 # Base de donnees SQLite locale
 ged.db
+".aider*" 
+.aider.chat.history.md 
