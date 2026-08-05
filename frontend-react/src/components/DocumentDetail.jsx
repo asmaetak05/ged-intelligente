@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../api/axios';   // ← remplace axios brut
 import { ArrowLeft, MapPin, Banknote, Clock, ShieldCheck } from 'lucide-react';
- 
+
 const DocumentDetail = () => {
   const { numero } = useParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
- 
+
   useEffect(() => {
     const fetchDoc = async () => {
       try {
-        const res = await axios.get(`http://127.0.0.1:8000/api/v1/ged/appels-offres/${encodeURIComponent(numero)}`);
+        const res = await apiClient.get(`/api/v1/ged/appels-offres/${encodeURIComponent(numero)}`);
         setData(res.data);
       } catch (err) {
         console.error(err);
@@ -21,6 +21,7 @@ const DocumentDetail = () => {
     };
     fetchDoc();
   }, [numero]);
+ 
  
   if (loading) return <div className="p-8 text-zinc-500 dark:text-zinc-400 text-sm">Chargement du document...</div>;
   if (!data) return <div className="p-8 text-zinc-500 dark:text-zinc-400 text-sm">Document introuvable.</div>;
